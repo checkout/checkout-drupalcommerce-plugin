@@ -1,4 +1,3 @@
 
-Webhook: example.com/checkoutapi/process
-checkout-drupalcommerce-plugin
+This folder is used store documentation
 

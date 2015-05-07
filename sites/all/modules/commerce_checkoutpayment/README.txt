@@ -1,1 +1,0 @@
-Checkout.Com (http://www.checkout.com/) Payment Gateway integration with Drupal.
