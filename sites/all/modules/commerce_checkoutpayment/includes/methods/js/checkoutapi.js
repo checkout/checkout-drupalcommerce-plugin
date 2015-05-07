@@ -71,9 +71,8 @@
           reload = true;
          }
       }
-
-      $('#edit-commerce-payment-payment-method-commerce-gw3-checkoutapipaymentcommerce-payment-commerce-gw3-checkoutapipayment').unbind('click.CheckoutApi');
-      $('#edit-commerce-payment-payment-method-commerce-gw3-checkoutapipaymentcommerce-payment-commerce-gw3-checkoutapipayment').bind('click.CheckoutApi', function () {
+	  var $_editElement = $('#edit-commerce-payment-payment-method-commerce-checkoutpaymentcommerce-payment-commerce-checkoutpayment');
+      $_editElement.unbind('click.CheckoutApi').bind('click.CheckoutApi', function () {
 
         var interVal2 = setInterval(function () {
           if ($('.widget-container').length) {
