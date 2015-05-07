@@ -48,7 +48,6 @@
         customerName: Drupal.settings.commerce_checkoutpayment.name,
         value: Drupal.settings.commerce_checkoutpayment.amount,
         currency: Drupal.settings.commerce_checkoutpayment.currency,
-        namespace: "CheckoutIntegration",
         paymentToken: Drupal.settings.commerce_checkoutpayment.paymentToken,
         paymentMode: 'card',
         widgetContainerSelector: '.widget-container',
