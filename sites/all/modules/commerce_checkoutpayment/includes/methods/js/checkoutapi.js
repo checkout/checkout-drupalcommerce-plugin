@@ -11,7 +11,12 @@
     if (!scriptJs) {
       scriptJs = document.createElement('script');
 
-      scriptJs.src = 'https://www.checkout.com/cdn/js/checkout.js';
+      if(Drupal.settings.commerce_checkoutpayment.mode == 'live') {
+        scriptJs.src= "https://www.checkout.com/cdn/js/checkout.js";
+      }
+      else {
+        scriptJs.src= "//sandbox.checkout.com/js/v1/checkout.js";
+      }
       scriptJs.id = 'checkoutApijs';
       scriptJs.type = 'text/javascript';
       var interVal = setInterval(function () {

@@ -71,8 +71,7 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
       '#default_value' => $settings['mode'],
       '#options' => array(
           'live' => t('Live - use for processing real transactions'),
-          'preprod' => t('Pre production - use to test before setting live'),
-          'test' => t('Test - sandbox for testing. Require a test account')
+          'sandbox' => t('Test - sandbox for testing. Require a test account')
       )
   );
 
