@@ -70,7 +70,7 @@
           reload = true;
          }
       }
-	  var $_editElement = $('#edit-commerce-payment-payment-method-commerce-checkoutpaymentcommerce-payment-commerce-checkoutpayment');
+      var $_editElement = $('#edit-commerce-payment-payment-method-commerce-checkoutpaymentcommerce-payment-commerce-checkoutpayment');
       $_editElement.unbind('click.CheckoutApi').bind('click.CheckoutApi', function () {
 
         var interVal2 = setInterval(function () {
