@@ -54,7 +54,6 @@
         value: Drupal.settings.commerce_checkoutpayment.amount,
         currency: Drupal.settings.commerce_checkoutpayment.currency,
         paymentToken: Drupal.settings.commerce_checkoutpayment.paymentToken,
-        paymentMode: 'card',
         widgetContainerSelector: '.widget-container',
         cardCharged: function (event) {
           document.getElementById('cko-cc-paymenToken').value = event.data.paymentToken;
