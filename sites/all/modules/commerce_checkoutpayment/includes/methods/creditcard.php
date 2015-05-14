@@ -65,6 +65,7 @@ class methods_creditcard extends methods_Abstract
       $config = array();
 
       $config['publicKey'] = $payment_method['settings']['public_key'];
+      $config['mode'] = $payment_method['settings']['mode'];
       $config['email'] = $order->mail;
       $config['name'] = "{$billing_address['first_name']} {$billing_address['last_name']}";
       $config['amount'] = $order_array['amount'];

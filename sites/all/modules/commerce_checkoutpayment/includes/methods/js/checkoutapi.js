@@ -11,7 +11,12 @@
     if (!scriptJs) {
       scriptJs = document.createElement('script');
 
-      scriptJs.src = 'https://www.checkout.com/cdn/js/checkout.js';
+      if(Drupal.settings.commerce_checkoutpayment.mode == 'live') {
+        scriptJs.src= "https://www.checkout.com/cdn/js/checkout.js";
+      }
+      else {
+        scriptJs.src= "//sandbox.checkout.com/js/v1/checkout.js";
+      }
       scriptJs.id = 'checkoutApijs';
       scriptJs.type = 'text/javascript';
       var interVal = setInterval(function () {
@@ -49,7 +54,6 @@
         value: Drupal.settings.commerce_checkoutpayment.amount,
         currency: Drupal.settings.commerce_checkoutpayment.currency,
         paymentToken: Drupal.settings.commerce_checkoutpayment.paymentToken,
-        paymentMode: 'card',
         widgetContainerSelector: '.widget-container',
         cardCharged: function (event) {
           document.getElementById('cko-cc-paymenToken').value = event.data.paymentToken;
@@ -70,7 +74,7 @@
           reload = true;
          }
       }
-	  var $_editElement = $('#edit-commerce-payment-payment-method-commerce-checkoutpaymentcommerce-payment-commerce-checkoutpayment');
+      var $_editElement = $('#edit-commerce-payment-payment-method-commerce-checkoutpaymentcommerce-payment-commerce-checkoutpayment');
       $_editElement.unbind('click.CheckoutApi').bind('click.CheckoutApi', function () {
 
         var interVal2 = setInterval(function () {
