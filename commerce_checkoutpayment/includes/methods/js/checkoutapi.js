@@ -32,7 +32,7 @@
     $('#commerce-checkout-form-review input.checkout-continue.form-submit').click(function (event) {
       if ($('.widget-container').length) {
         event.preventDefault();
-        $('.messages.error').hide();
+        //$('.messages.error').hide();
         CheckoutIntegration.open();
         $(this).hide().next().show().nextAll('input#edit-continue').hide();
         $('span.checkout-processing').removeClass('element-invisible');
@@ -46,7 +46,7 @@
       var reload = false;
       window.CKOConfig = {
         debugMode: false,
-        renderMode: 2,
+        renderMode: 2, //displaying widget:- 0 All, 1 Pay Button Only, 2 Icons Only
         publicKey: Drupal.settings.commerce_checkoutpayment.publicKey,
         customerEmail: Drupal.settings.commerce_checkoutpayment.email,
         namespace: 'CheckoutIntegration',
@@ -54,7 +54,7 @@
         value: Drupal.settings.commerce_checkoutpayment.amount,
         currency: Drupal.settings.commerce_checkoutpayment.currency,
         paymentToken: Drupal.settings.commerce_checkoutpayment.paymentToken,
-        widgetContainerSelector: '.widget-container',
+        widgetContainerSelector: '.widget-container', //The .class of the element hosting the Checkout.js widget card icons
         cardCharged: function (event) {
           document.getElementById('cko-cc-paymenToken').value = event.data.paymentToken;
           $('#commerce-checkout-form-review').trigger('submit');
