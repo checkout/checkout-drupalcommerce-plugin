@@ -27,6 +27,10 @@ Set gateway auto capture time. (Default 0).
 
 Select Method type.
 
+Webhook
+=============
+Webhook url: example.com/checkoutapi/process
+
 
 Maintainers
 ===========
