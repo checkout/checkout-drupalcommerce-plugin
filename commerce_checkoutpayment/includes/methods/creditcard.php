@@ -70,13 +70,12 @@ class methods_creditcard extends methods_Abstract
       $config['name'] = "{$billing_address['first_name']} {$billing_address['last_name']}";
       $config['amount'] = $order_array['amount'];
       $config['currency'] = $order_array['currency_code'];
-      $config['renderMode'] = 2;
       $config['paymentToken'] = $paymentToken['token'];
-      $config['widgetSelector'] = '.widget-container';
 
       $jsConfig = $config;
       $array['script'] = $jsConfig;
       $array['paymentToken'] = $paymentToken;
+
     }
 
     return $array;

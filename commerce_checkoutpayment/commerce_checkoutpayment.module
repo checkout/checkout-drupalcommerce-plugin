@@ -1,7 +1,5 @@
 <?php
 
-include 'includes/autoload.php';
-
 /**
  * Implements hook_commerce_payment_method_info().
  */
@@ -17,7 +15,7 @@ function commerce_checkoutpayment_commerce_payment_method_info() {
     'offsite' => FALSE,
     'offsite_autoredirect' => FALSE,
     'callbacks' => array(
-      'submit_form_submit' => 'submitFormCharge',
+      'submit_form_submit' => 'commerce_checkoutpayment_submit_charge',
     ),
   );
 
@@ -136,7 +134,7 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
  */
 function commerce_checkoutpayment_submit_form($payment_method, $pane_values, $checkout_pane, $order) {
 
-  $instance = getInstance($payment_method);
+  $instance = _getInstance($payment_method);
   return $instance->submit_form($payment_method, $pane_values, $checkout_pane, $order);
 }
 
@@ -162,12 +160,18 @@ function commerce_checkoutpayment_submit_form_validate($payment_method, $pane_fo
   }
 }
 
-function getInstance($settings) {
+/**
+ * Retrieves all active instances definitions.
+ */
+function _getInstance($settings) {
+
+  module_load_include('php', 'commerce_checkoutpayment', 'includes/autoload');
+
   switch ($settings['settings']['type']) {
     case 'pci':
       $_instance = CheckoutApi_Lib_Factory::getInstance('methods_creditcardpci');
       break;
-    
+
     default:
       $_instance = CheckoutApi_Lib_Factory::getInstance('methods_creditcard');
       break;
@@ -176,9 +180,12 @@ function getInstance($settings) {
   return $_instance;
 }
 
-function submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge) {
+/**
+ * Imitates the checkout form submission callback for the Checkout.com payment method.
+ */
+function commerce_checkoutpayment_submit_charge($payment_method, $pane_form, $pane_values, $order, $charge) {
 
-  $instance = getInstance($payment_method);
+  $instance = _getInstance($payment_method);
   return $instance->submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge);
 }
 
@@ -197,6 +204,10 @@ function commerce_checkoutpayment_menu() {
   return $items;
 }
 
+/*
+ * Get order status updates
+ * Webhook url : example.com/checkoutapi/process
+ */
 function commerce_checkoutpayment_process_order() {
 
   $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');
