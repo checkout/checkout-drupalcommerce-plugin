@@ -1,4 +1,4 @@
 Installation
 ============
 
-See https://github.com/CKOTech/checkout-drupalcommerce-plugin/wiki/Installation for installaion guide.
+See our installation guide on our wiki on the right.
