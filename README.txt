@@ -1,4 +1,4 @@
 Installation
 ============
 
-See our installation guide on our wiki on the right.
+See the installation guide on our wiki on the right.
