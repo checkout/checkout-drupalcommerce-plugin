@@ -161,7 +161,9 @@ class methods_creditcard extends methods_Abstract
           'description' => 'Order number::' . $orderId,
           'shippingDetails' => $shippingAddressConfig,
           'products' => $products,
-          'billingDetails' => $billingAddressConfig
+          'card' => array (
+              'billingDetails' => $billingAddressConfig,
+          ),
       ));
 
       $Api = CheckoutApi_Api::getApi(array('mode' => $mode));
