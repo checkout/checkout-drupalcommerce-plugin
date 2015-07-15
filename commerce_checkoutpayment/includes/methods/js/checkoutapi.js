@@ -16,14 +16,18 @@
       s.src = "//sandbox.checkout.com/js/v1/checkout.js";
     }
     head.appendChild(s);
-
-    $('#commerce-checkout-form-review input.checkout-continue.form-submit').click(function (event) {
-      if ($('.widget-container').length) {
+    $('#commerce-checkoutpayment-redirect-form #edit-submit').click(function (event) {
         event.preventDefault();
-        CheckoutIntegration.open();
-        $(this).hide().next().show().nextAll('input#edit-continue').hide();
-        $('span.checkout-processing').removeClass('element-invisible');
-      }
+        if(typeof CheckoutIntegration !='undefined') {
+          if(!CheckoutIntegration.isMobile()){
+            CheckoutIntegration.open();
+            $('#commerce-checkoutpayment-redirect-form #edit-submit').attr("disabled", "disabled");
+          }
+          else {
+            $('#cko-cc-redirectUrl').val(CheckoutIntegration.getRedirectionUrl());
+            $('#commerce-checkoutpayment-redirect-form').trigger('submit');
+          }
+        }
     });
   });
 
@@ -40,16 +44,17 @@
         customerName: Drupal.settings.commerce_checkoutpayment.name,
         value: Drupal.settings.commerce_checkoutpayment.amount,
         currency: Drupal.settings.commerce_checkoutpayment.currency,
+        paymentMode: Drupal.settings.commerce_checkoutpayment.localpayment,
         paymentToken: Drupal.settings.commerce_checkoutpayment.paymentToken,
+        forceMobileRedirect: true,
         widgetContainerSelector: '.widget-container', //The .class of the element hosting the Checkout.js widget card icons
         cardCharged: function (event) {
-          document.getElementById('cko-cc-paymenToken').value = event.data.paymentToken;
-          $('#commerce-checkout-form-review').trigger('submit');
-          $('input.checkout-continue.form-submit').attr("disabled", 'disabled');
+          $('#cko-cc-paymenToken').val(event.data.paymentToken);
+          $('#commerce-checkoutpayment-redirect-form').trigger('submit');
+          $('#commerce-checkoutpayment-redirect-form #edit-submit').attr("disabled", "disabled");
         },
         lightboxDeactivated: function () {
-          $('span.checkout-processing').addClass('element-invisible');
-          $('#commerce-checkout-form-review #edit-buttons input').first().show().nextAll('input#edit-continue').hide();
+          $('#commerce-checkoutpayment-redirect-form #edit-submit').removeAttr("disabled");
           if (reload) {
               window.location.reload();
           }
@@ -68,8 +73,8 @@
             CheckoutIntegration.render(window.CKOConfig);
             clearInterval(interVal2);
           }
-        }, 500);
-      });
+        }, 500);  
+      }); 
     }
   }
 })(jQuery);

@@ -95,7 +95,7 @@ abstract class methods_Abstract
     $respondCharge = $this->_createCharge($config);
 
     $transaction = commerce_payment_transaction_new('commerce_checkoutpayment', $order->order_id);
-    $transaction->instance_id = $respondCharge->getId();
+    $transaction->instance_id = $payment_method['instance_id'];
 
     $transaction->amount = $charge['amount'];
     $transaction->currency_code = $charge['currency_code'];
@@ -103,16 +103,9 @@ abstract class methods_Abstract
 
     if ($respondCharge->isValid()) {
       if (preg_match('/^1[0-9]+$/', $respondCharge->getResponseCode())) {
-        if ($respondCharge->getCaptured()) {
-          $transaction->status = COMMERCE_PAYMENT_STATUS_SUCCESS;
-          $transaction->message = 'Your transaction has been successfully captured with transaction id : ' . $respondCharge->getId();
-        }
-        else {
-          $transaction->status = COMMERCE_PAYMENT_STATUS_PENDING;
-          $transaction->message = 'Your transaction has been successfully authorized with transaction id : ' . $respondCharge->getId();
-        }
 
-        //   $transaction->message =$respondCharge->getResponseMessage();
+        $transaction->status = COMMERCE_PAYMENT_STATUS_PENDING;
+        $transaction->message = 'Your transaction has been successfully authorized with transaction id : ' . $respondCharge->getId();
         commerce_payment_transaction_save($transaction);
         return true;
       }
@@ -156,8 +149,7 @@ abstract class methods_Abstract
     return $to_return;
   }
 
-  public function getExtraInit() {
+  public function getExtraInit($order,$payment_method) {
     return null;
   }
-
 }

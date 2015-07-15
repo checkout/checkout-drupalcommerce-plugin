@@ -30,6 +30,7 @@ Select Method type.
 Webhook
 =============
 Webhook url: example.com/checkoutapi/process
+Success url: example.com/commerce_checkoutpayment/success
 
 
 Maintainers
