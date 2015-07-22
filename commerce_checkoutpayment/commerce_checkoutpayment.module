@@ -12,7 +12,7 @@ function commerce_checkoutpayment_commerce_payment_method_info() {
     'short_title' => t('Credit / Debit cards (Checkout.com)'),
     'description' => t('Payment method for Checkout.com'),
     'terminal' => FALSE,
-    'offsite' => FALSE,
+    'offsite' => commerce_checkoutpayment_check_method_type(),
     'offsite_autoredirect' => FALSE,
     'callbacks' => array(
       'submit_form_submit' => 'commerce_checkoutpayment_submit_charge',
@@ -20,6 +20,21 @@ function commerce_checkoutpayment_commerce_payment_method_info() {
   );
 
   return $payment_methods;
+}
+
+/*
+ * Return TRUE or FALSE indicating whether or not the customer 
+ * must be redirected depending on the payment method type.
+ */
+function commerce_checkoutpayment_check_method_type(){
+
+  $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');
+  if($payment_method['settings']['type'] == 'pci'){
+    return FALSE;
+  }
+  else{
+    return TRUE;
+  }
 }
 
 /**
@@ -143,6 +158,9 @@ function commerce_checkoutpayment_submit_form($payment_method, $pane_values, $ch
  */
 function commerce_checkoutpayment_submit_form_validate($payment_method, $pane_form, $pane_values, $order, $form_parents = array()) {
 
+  $instance = _getInstance($payment_method); 
+  $data = $instance->getExtraInit($order,$payment_method);
+
   if ($payment_method['settings']['type'] == 'pci') {
     // Validate the credit card fields.
     module_load_include('inc', 'commerce_payment', 'includes/commerce_payment.credit_card');
@@ -155,7 +173,11 @@ function commerce_checkoutpayment_submit_form_validate($payment_method, $pane_fo
       return FALSE;
     }
   }
-  else {
+  else {  
+    if (empty($pane_values['credit_card']['cko-cc-paymenToken'])) {
+      drupal_set_message($data['paymentToken']['message'], 'error');
+      return  FALSE;
+    }
     return TRUE;
   }
 }
@@ -185,8 +207,15 @@ function _getInstance($settings) {
  */
 function commerce_checkoutpayment_submit_charge($payment_method, $pane_form, $pane_values, $order, $charge) {
 
-  $instance = _getInstance($payment_method);
-  return $instance->submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge);
+  if ($payment_method['settings']['type'] == 'pci') {
+    $instance = _getInstance($payment_method);
+ 
+    return $instance->submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge);
+  }
+  else {
+
+    return TRUE;
+  }
 }
 
 /**
@@ -194,9 +223,18 @@ function commerce_checkoutpayment_submit_charge($payment_method, $pane_form, $pa
  */
 function commerce_checkoutpayment_menu() {
 
+  $item = array();
+
   $items['checkoutapi/process'] = array(
     'title' => 'Ipn checkout',
     'page callback' => 'commerce_checkoutpayment_process_order',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['commerce_checkoutpayment/success'] = array(
+    'title' => 'Success page',
+    'page callback' => 'commerce_checkoutpayment_success_order',
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
@@ -236,7 +274,7 @@ function commerce_checkoutpayment_process_order() {
         $transaction->status = COMMERCE_PAYMENT_STATUS_SUCCESS;
         $transaction->message = 'Your transaction has been successfully captured';
         commerce_payment_transaction_save($transaction);
-        commerce_order_status_update($order, 'completed', $skip_save = FALSE, TRUE, $log = 'Your payment has been successfully completed');
+        commerce_order_status_update($order, 'processing', $skip_save = FALSE, TRUE, $log = 'Your payment has been successfully completed');
       }
       elseif ($object_charge->getRefunded()) {
 
@@ -258,4 +296,121 @@ function commerce_checkoutpayment_process_order() {
     }
   }
   return NULL;
+}
+
+/*
+ * Mobile Redirect to success page
+ * Success url : example.com/commerce_checkoutpayment/success
+ */
+function commerce_checkoutpayment_success_order() {
+  global $user;
+
+  if(!isset($_POST['cko-payment-token'])){
+    drupal_goto();
+  }
+
+  module_load_include('php', 'commerce_checkoutpayment', 'includes/autoload');
+
+  $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');
+
+  $config['authorization'] = $payment_method['settings']['private_key'];
+  $config['paymentToken'] = $_POST['cko-payment-token'];
+
+  $api = CheckoutApi_Api::getApi(array('mode' => $payment_method['settings']['mode']));
+  $object_charge = $api->verifyChargePaymentToken($config);
+
+  $order_id = isset($_POST['cko-track-id']) && !empty($_POST['cko-track-id'])? $_POST['cko-track-id'] : $object_charge->getTrackId();
+  $order = commerce_order_load($order_id);
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $order_total = $order_wrapper->commerce_order_total->value();
+
+  $transaction = commerce_payment_transaction_new($payment_method['method_id'], $order->order_id);
+  $transaction->instance_id = $payment_method['instance_id'];
+  $transaction->amount = $order_total['amount'];
+  $transaction->currency_code = $order_total['currency_code'];
+  $transaction->payload[REQUEST_TIME] = $object_charge->getCreated();
+
+  if (preg_match('/^1[0-9]+$/', $object_charge->getResponseCode())) {
+
+    $transaction->status = COMMERCE_PAYMENT_STATUS_PENDING;
+    $transaction->message = 'Your transaction has been successfully authorized with transaction id : ' . $object_charge->getId();
+
+    commerce_payment_transaction_save($transaction);
+    $order = commerce_order_status_update($order, 'checkout_complete', $skip_save = FALSE, TRUE, $log = 'Your payment has been successfully completed');
+
+  }
+  else {
+    watchdog('checkoutpayment_return_url', '!charge', array('!charge' => $object_charge->getRawRespond()), WATCHDOG_WARNING);
+  }
+  //calling this method order status will be changed to "Checkout_complete", this method will fire commerce_checkout_rule()
+  //In commerce_checkout_rule(), we can send email to client to notify checkout is complete.
+  commerce_checkout_complete($order);
+  //redirect to order completed page or review page
+  return drupal_goto(commerce_checkout_order_uri($order));
+}
+
+/**
+ * Payment method callback: redirect form.
+ */
+function commerce_checkoutpayment_redirect_form ($form, &$form_state, $order, $payment_method){
+
+  $instance = _getInstance($payment_method); 
+  $data = $instance->getExtraInit($order,$payment_method);
+
+  $form['pay_method_container'] = array(
+        '#type' => 'hidden',
+        '#attributes' => array(
+            'class' => array('widget-container')
+        ),
+    );
+  $form['cko-cc-redirectUrl'] = array(
+    '#type' => 'hidden',
+    '#value' => '',
+    '#attributes' => array(
+        'id' => array('cko-cc-redirectUrl')
+    ),
+  );
+  $form['cko-cc-paymenToken'] = array(
+        '#type' => 'hidden',
+        '#value' => '',
+        '#attributes' => array(
+            'id' => array('cko-cc-paymenToken')
+        ),
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Proceed to Checkout.Com'),
+    '#attached' => array(
+      'js' => array(
+        drupal_get_path('module', 'commerce_checkoutpayment') . '/includes/methods/js/checkoutapi.js' => array(
+          'type' => 'file',
+        ),
+        array(
+          'data' => array('commerce_checkoutpayment' => $data['script']),
+          'type' => 'setting',
+        ),
+      ),
+    ),
+  );
+
+  $form['#action'] = url('checkout/' . $order->order_id . '/payment/return/' . $order->data['payment_redirect_key']);
+
+  return $form;
+}
+
+/**
+ * Payment method callback: redirect form return submission.
+ */
+function commerce_checkoutpayment_redirect_form_submit($order, $payment_method){
+
+  $instance = _getInstance($payment_method);
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $order_total = $order_wrapper->commerce_order_total->value();
+  $charge['amount'] = $order_total['amount'];
+  $charge['currency_code'] = $order_total['currency_code'];
+  $pane_values['cko-cc-paymenToken'] = $_POST['cko-cc-paymenToken'];
+  $pane_values['cko-cc-redirectUrl'] = $_POST['cko-cc-redirectUrl'];
+
+  return $instance->submitFormCharge($payment_method, $pane_form = NULL, $pane_values, $order, $charge);
 }

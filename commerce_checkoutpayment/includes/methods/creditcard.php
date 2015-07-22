@@ -6,15 +6,19 @@ class methods_creditcard extends methods_Abstract
   public function submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge) {
 
     $config = parent::submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge);
-    $config['postedParam']['paymentToken'] = $pane_values['credit_card']['cko-cc-paymenToken'];
+    $config['postedParam']['paymentToken'] = $pane_values['cko-cc-paymenToken'];
 
-    return $this->_placeorder($config, $charge, $order, $payment_method);
+    if(!empty($pane_values['cko-cc-redirectUrl'])){
+      drupal_goto($pane_values['cko-cc-redirectUrl'] . '&trackId=' . $order->order_id);
+    }
+    else {
+      return $this->_placeorder($config, $charge, $order, $payment_method);
+    }
   }
 
   public function submit_form($payment_method, $pane_values, $checkout_pane, $order) {
 
-    $data = $this->getExtraInit();
-
+    $data = $this->getExtraInit($order,$payment_method);
     $form['pay_method_container'] = array(
         '#type' => 'container',
         '#attributes' => array(
@@ -24,7 +28,7 @@ class methods_creditcard extends methods_Abstract
 
     $form['credit_card']['cko-cc-paymenToken'] = array(
         '#type' => 'hidden',
-        '#value' => '',
+        '#value' => !empty($data['paymentToken']['token'])?$data['paymentToken']['token']:'',
         '#attributes' => array(
             'id' => array('cko-cc-paymenToken')
         ),
@@ -41,22 +45,15 @@ class methods_creditcard extends methods_Abstract
         'type' => 'setting',
     );
 
-    if (empty($data['paymentToken']['token'])) {
-      drupal_set_message($data['paymentToken']['message'], 'error');
-    }
-
     return $form;
   }
 
-  public function getExtraInit() {
+  public function getExtraInit($order,$payment_method) {
 
     $array = array();
-    $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');
     module_load_include('inc', 'commerce_payment', 'includes/commerce_payment.credit_card');
-    global $user;
 
-    $order = commerce_cart_order_load($user->uid);
-    $paymentToken = $this->generatePaymentToken();
+    $paymentToken = $this->generatePaymentToken($order,$payment_method);
 
     if ($order) {
       $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
@@ -70,26 +67,25 @@ class methods_creditcard extends methods_Abstract
       $config['name'] = "{$billing_address['first_name']} {$billing_address['last_name']}";
       $config['amount'] = $order_array['amount'];
       $config['currency'] = $order_array['currency_code'];
+      $config['localpayment'] = ($payment_method['settings']['localpayment'] == 'false')? 'card': 'mixed';
       $config['paymentToken'] = $paymentToken['token'];
 
       $jsConfig = $config;
       $array['script'] = $jsConfig;
       $array['paymentToken'] = $paymentToken;
-
     }
 
     return $array;
   }
 
-  public function generatePaymentToken() {
+  public function generatePaymentToken($order,$payment_method) {
 
     global $user;
     $config = array();
     $shippingAddressConfig = null;
 
-    $order = commerce_cart_order_load($user->uid);
     $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
-    $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');
+
     $billing_address = $order_wrapper->commerce_customer_billing->commerce_customer_address->value();
     $order_array = $order_wrapper->commerce_order_total->value();
     $product_line_items = $order->commerce_line_items[LANGUAGE_NONE];
@@ -115,7 +111,6 @@ class methods_creditcard extends methods_Abstract
 
         $config = array_merge($config, $this->_captureConfig($payment_method));
       }
-
 
       $products = array();
       if (!empty($product_line_items)) {
@@ -161,7 +156,9 @@ class methods_creditcard extends methods_Abstract
           'description' => 'Order number::' . $orderId,
           'shippingDetails' => $shippingAddressConfig,
           'products' => $products,
-          'billingDetails' => $billingAddressConfig
+          'card' => array (
+              'billingDetails' => $billingAddressConfig,
+          ),
       ));
 
       $Api = CheckoutApi_Api::getApi(array('mode' => $mode));
@@ -190,6 +187,7 @@ class methods_creditcard extends methods_Abstract
   }
 
   protected function _createCharge($config) {
+
     $config = array();
 
     $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');
@@ -199,7 +197,7 @@ class methods_creditcard extends methods_Abstract
 
     $config['authorization'] = $scretKey;
     $config['timeout'] = $timeout;
-    $config['paymentToken'] = $_POST['commerce_payment']['payment_details']['credit_card']['cko-cc-paymenToken'];
+    $config['paymentToken'] = $_POST['cko-cc-paymenToken'];
 
     $Api = CheckoutApi_Api::getApi(array('mode' => $mode));
     return $Api->verifyChargePaymentToken($config);
@@ -221,5 +219,4 @@ class methods_creditcard extends methods_Abstract
     );
     return $to_return;
   }
-
 }
