@@ -254,7 +254,7 @@ function commerce_checkoutpayment_process_order() {
     $api = CheckoutApi_Api::getApi(array('mode' => $payment_method['settings']['mode']));
     $object_charge = $api->chargeToObj($post_data);
 
-    if ($object_charge->isValid()) {
+    if ($object_charge->isValid() && preg_match('/^1[0-9]+$/', $objectCharge->getResponseCode())) {
 
       /*
        * Need to get track id
