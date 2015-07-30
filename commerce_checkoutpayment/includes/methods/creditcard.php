@@ -63,6 +63,11 @@ class methods_creditcard extends methods_Abstract
 
       $config['publicKey'] = $payment_method['settings']['public_key'];
       $config['mode'] = $payment_method['settings']['mode'];
+      $config['iconcolor'] = $payment_method['settings']['iconcolor'];
+      $config['logourl'] = $payment_method['settings']['logourl'];
+      $config['buttoncolor'] = $payment_method['settings']['buttoncolor'];
+      $config['themecolor'] = $payment_method['settings']['themecolor'];
+      $config['currencycode'] = $payment_method['settings']['currencycode'];
       $config['email'] = $order->mail;
       $config['name'] = "{$billing_address['first_name']} {$billing_address['last_name']}";
       $config['amount'] = $order_array['amount'];
@@ -83,9 +88,9 @@ class methods_creditcard extends methods_Abstract
     global $user;
     $config = array();
     $shippingAddressConfig = null;
-
+    
     $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
-
+    
     $billing_address = $order_wrapper->commerce_customer_billing->commerce_customer_address->value();
     $order_array = $order_wrapper->commerce_order_total->value();
     $product_line_items = $order->commerce_line_items[LANGUAGE_NONE];
@@ -111,6 +116,7 @@ class methods_creditcard extends methods_Abstract
 
         $config = array_merge($config, $this->_captureConfig($payment_method));
       }
+
 
       $products = array();
       if (!empty($product_line_items)) {
@@ -187,7 +193,7 @@ class methods_creditcard extends methods_Abstract
   }
 
   protected function _createCharge($config) {
-
+    
     $config = array();
 
     $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');

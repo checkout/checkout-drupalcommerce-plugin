@@ -18,7 +18,7 @@ function commerce_checkoutpayment_commerce_payment_method_info() {
       'submit_form_submit' => 'commerce_checkoutpayment_submit_charge',
     ),
   );
-
+  
   return $payment_methods;
 }
 
@@ -46,6 +46,11 @@ function commerce_checkoutpayment_settings_default() {
     'mode' => 'live',
     'type' => 'pci',
     'localpayment' => 'false',
+    'iconcolor' => '',
+    'logourl' => '',
+    'buttoncolor' => '',
+    'themecolor' => '',
+    'currencycode' => 'true',
     'timeout' => 60,
     'card_types' => array(),
     'payment_action' => COMMERCE_CREDIT_AUTH_ONLY,
@@ -66,6 +71,7 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
   $form['private_key'] = array(
     '#type' => 'textfield',
     '#title' => t('Private Key'),
+    '#required' => TRUE,
     '#description' => t('The Checkout.com account secret API key to use .'),
     '#default_value' => $settings['private_key'],
   );
@@ -73,6 +79,7 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
   $form['public_key'] = array(
     '#type' => 'textfield',
     '#title' => t('Publishable API Key'),
+    '#required' => TRUE,
     '#description' => t('The Checkout.com account publishable API key to use.'),
     '#default_value' => $settings['public_key'],
   );
@@ -95,7 +102,7 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
     '#default_value' => $settings['payment_action'],
     '#options' => array(
       COMMERCE_CREDIT_AUTH_CAPTURE => t('Authorization and capture'),
-      COMMERCE_CREDIT_AUTH_ONLY => t('Authorization only (requires manual or automated capture after checkout)'),
+      COMMERCE_CREDIT_AUTH_ONLY => t('Authorization only (requires manual capture after checkout)'),
     ),
   );
 
@@ -140,6 +147,45 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
     '#description' => t('Set how long request timeout on server.'),
     '#default_value' => $settings['timeout'],
   );
+  
+  $form['logourl'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Logo URL'),
+    '#description' => t('This is the setting to display the logo on checkout.js (Max size: 180 x 36)'),
+    '#default_value' => $settings['logourl'],
+  );
+  
+  $form['themecolor'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Theme color'),
+    '#description' => t('Set theme color for checkout.js'),
+    '#default_value' => $settings['themecolor'],
+  );
+  
+  $form['buttoncolor'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Button color'),
+    '#description' => t('Set color for Pay now button'),
+    '#default_value' => $settings['buttoncolor'],
+  );
+  
+  $form['iconcolor'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Icon color'),
+    '#description' => t('Set icon color for checkout.js'),
+    '#default_value' => $settings['iconcolor'],
+  );  
+  
+  $form['currencycode'] = array(
+    '#type' => 'select',
+    '#title' => t('Widget currency format'),
+    '#description' => t('Display currency code or currency symbol on the checkout.js'),
+    '#options' => array(
+      'true' => 'Code',
+      'false' => 'Symbol',
+    ),
+    '#default_value' => $settings['currencycode'],
+  );
 
   return $form;
 }
@@ -160,7 +206,7 @@ function commerce_checkoutpayment_submit_form_validate($payment_method, $pane_fo
 
   $instance = _getInstance($payment_method); 
   $data = $instance->getExtraInit($order,$payment_method);
-
+    
   if ($payment_method['settings']['type'] == 'pci') {
     // Validate the credit card fields.
     module_load_include('inc', 'commerce_payment', 'includes/commerce_payment.credit_card');
@@ -209,11 +255,11 @@ function commerce_checkoutpayment_submit_charge($payment_method, $pane_form, $pa
 
   if ($payment_method['settings']['type'] == 'pci') {
     $instance = _getInstance($payment_method);
- 
+    
     return $instance->submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge);
   }
   else {
-
+    
     return TRUE;
   }
 }
@@ -224,14 +270,14 @@ function commerce_checkoutpayment_submit_charge($payment_method, $pane_form, $pa
 function commerce_checkoutpayment_menu() {
 
   $item = array();
-
+  
   $items['checkoutapi/process'] = array(
     'title' => 'Ipn checkout',
     'page callback' => 'commerce_checkoutpayment_process_order',
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
-
+  
   $items['commerce_checkoutpayment/success'] = array(
     'title' => 'Success page',
     'page callback' => 'commerce_checkoutpayment_success_order',
@@ -254,7 +300,7 @@ function commerce_checkoutpayment_process_order() {
     $api = CheckoutApi_Api::getApi(array('mode' => $payment_method['settings']['mode']));
     $object_charge = $api->chargeToObj($post_data);
 
-    if ($object_charge->isValid() && preg_match('/^1[0-9]+$/', $objectCharge->getResponseCode())) {
+    if ($object_charge->isValid()) {
 
       /*
        * Need to get track id
@@ -312,14 +358,14 @@ function commerce_checkoutpayment_success_order() {
   module_load_include('php', 'commerce_checkoutpayment', 'includes/autoload');
 
   $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');
-
+  
   $config['authorization'] = $payment_method['settings']['private_key'];
   $config['paymentToken'] = $_POST['cko-payment-token'];
 
   $api = CheckoutApi_Api::getApi(array('mode' => $payment_method['settings']['mode']));
   $object_charge = $api->verifyChargePaymentToken($config);
 
-  $order_id = isset($_POST['cko-track-id']) && !empty($_POST['cko-track-id'])? $_POST['cko-track-id'] : $object_charge->getTrackId();
+  $order_id = $object_charge->getTrackId();
   $order = commerce_order_load($order_id);
   $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
   $order_total = $order_wrapper->commerce_order_total->value();
@@ -353,7 +399,7 @@ function commerce_checkoutpayment_success_order() {
  * Payment method callback: redirect form.
  */
 function commerce_checkoutpayment_redirect_form ($form, &$form_state, $order, $payment_method){
-
+  
   $instance = _getInstance($payment_method); 
   $data = $instance->getExtraInit($order,$payment_method);
 
