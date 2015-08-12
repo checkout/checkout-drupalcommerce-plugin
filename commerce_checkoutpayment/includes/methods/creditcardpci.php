@@ -1,14 +1,16 @@
 <?php
 
-class methods_creditcardpci extends methods_Abstract
-{
+class methods_creditcardpci extends methods_Abstract {
 
-  public function submit_form($payment_method, $pane_values, $checkout_pane, $order) {
+  /**
+   * Payment method callback: checkout form.
+   */
+  public function submitForm($payment_method, $pane_values, $checkout_pane, $order) {
     module_load_include('inc', 'commerce_payment', 'includes/commerce_payment.credit_card');
 
     // Prepare the fields to include on the credit card form.
     $fields = array(
-        'code' => '',
+      'code' => '',
     );
 
     // Add the credit card types array if necessary.
@@ -23,6 +25,9 @@ class methods_creditcardpci extends methods_Abstract
     return commerce_payment_credit_card_form($fields);
   }
 
+  /**
+   * Payment method callback: checkout form submission.
+   */
   public function submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge) {
     $config = parent::submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge);
     $config['postedParam']['card']['number'] = $pane_values['credit_card']['number'];
@@ -30,7 +35,7 @@ class methods_creditcardpci extends methods_Abstract
     $config['postedParam']['card']['expiryYear'] = $pane_values['credit_card']['exp_year'];
     $config['postedParam']['card']['cvv'] = $pane_values['credit_card']['code'];
 
-    return $this->_placeorder($config, $charge, $order, $payment_method);
+    return $this->placeorder($config, $charge, $order, $payment_method);
   }
 
 }
