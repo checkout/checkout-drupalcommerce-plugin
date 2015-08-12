@@ -1,3 +1,4 @@
+
 /**
  * @file
  * CheckoutIntegration Api javascript functions.
@@ -45,6 +46,11 @@
         value: Drupal.settings.commerce_checkoutpayment.amount,
         currency: Drupal.settings.commerce_checkoutpayment.currency,
         paymentMode: Drupal.settings.commerce_checkoutpayment.localpayment,
+        logoUrl: Drupal.settings.commerce_checkoutpayment.logourl,
+        themeColor: Drupal.settings.commerce_checkoutpayment.themecolor,
+        buttonColor: Drupal.settings.commerce_checkoutpayment.buttoncolor,
+        iconColor: Drupal.settings.commerce_checkoutpayment.iconcolor,
+        useCurrencyCode: Drupal.settings.commerce_checkoutpayment.currencycode,
         paymentToken: Drupal.settings.commerce_checkoutpayment.paymentToken,
         forceMobileRedirect: true,
         widgetContainerSelector: '.widget-container', //The .class of the element hosting the Checkout.js widget card icons
