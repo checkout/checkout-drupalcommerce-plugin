@@ -8,7 +8,9 @@ class methods_creditcard extends methods_Abstract {
   public function submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge) {
 
     $config = parent::submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge);
-    $config['postedParam']['paymentToken'] = $pane_values['cko-cc-paymenToken'];
+    if(isset($pane_values['cko-cc-paymenToken'])) {
+      $config['postedParam']['paymentToken'] = $pane_values['cko-cc-paymenToken'];
+    }
 
     if (!empty($pane_values['cko-cc-redirectUrl'])) {
       drupal_goto($pane_values['cko-cc-redirectUrl'] . '&trackId=' . $order->order_id);

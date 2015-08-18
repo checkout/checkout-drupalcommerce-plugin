@@ -110,7 +110,7 @@ abstract class methods_Abstract {
 
     if ($respond_charge->isValid()) {
       if (preg_match('/^1[0-9]+$/', $respond_charge->getResponseCode())) {
-        $transaction->message = 'Your transaction has been successfully authorized with transaction id : ' . $respondCharge->getId();
+        $transaction->message = 'Your transaction has been successfully authorized with transaction id : ' . $respond_charge->getId();
 
         if(!$validate_request['status']){
           foreach($validate_request['message'] as $errormessage){

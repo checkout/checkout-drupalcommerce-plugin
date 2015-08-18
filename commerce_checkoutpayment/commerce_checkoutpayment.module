@@ -473,8 +473,21 @@ function commerce_checkoutpayment_redirect_form_submit($order, $payment_method) 
   $order_total = $order_wrapper->commerce_order_total->value();
   $charge['amount'] = $order_total['amount'];
   $charge['currency_code'] = $order_total['currency_code'];
-  $pane_values['cko-cc-paymenToken'] = $_POST['cko-cc-paymenToken'];
-  $pane_values['cko-cc-redirectUrl'] = $_POST['cko-cc-redirectUrl'];
+  $pane_values = array();
+  if($payment_method['method_id'] == 'commerce_checkoutpayment'){
+
+    if(!empty($_POST['cko-cc-paymenToken'])){
+      $pane_values['cko-cc-paymenToken'] = $_POST['cko-cc-paymenToken'];
+    }
+    else {
+      if(!empty($_POST['cko-cc-redirectUrl'])) {
+        $pane_values['cko-cc-redirectUrl'] = $_POST['cko-cc-redirectUrl'];
+      }
+      else {
+        drupal_goto('checkout/'. $order->order_id.'/payment');
+      }
+    }
+  }
 
   return $instance->submitFormCharge($payment_method, NULL, $pane_values, $order, $charge);
 }
