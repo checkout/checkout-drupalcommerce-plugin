@@ -35,7 +35,7 @@ function commerce_checkoutpayment_commerce_payment_method_info() {
 function commerce_checkoutpayment_check_method_type(){
 
   $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');
-  if ($payment_method['settings']['type'] == 'pci') {
+  if (isset($payment_method['settings']['type']) && $payment_method['settings']['type'] == 'pci') {
     return FALSE;
   }
   else {
@@ -79,7 +79,7 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
     '#title' => t('Private Key'),
     '#required' => TRUE,
     '#description' => t('The Checkout.com account secret API key to use .'),
-    '#default_value' => $settings['private_key'],
+    '#default_value' => isset($settings['private_key']) ? $settings['private_key'] : '',
   );
 
   $form['public_key'] = array(
@@ -87,7 +87,7 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
     '#title' => t('Publishable API Key'),
     '#required' => TRUE,
     '#description' => t('The Checkout.com account publishable API key to use.'),
-    '#default_value' => $settings['public_key'],
+    '#default_value' => isset($settings['public_key']) ? $settings['public_key'] : '',
   );
 
   $form['mode'] = array(
