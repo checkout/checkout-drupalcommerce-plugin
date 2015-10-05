@@ -54,6 +54,12 @@
         paymentToken: Drupal.settings.commerce_checkoutpayment.paymentToken,
         forceMobileRedirect: true,
         widgetContainerSelector: '.widget-container', //The .class of the element hosting the Checkout.js widget card icons
+        styling: {
+          themeColor: Drupal.settings.commerce_checkoutpayment.themecolor,
+          buttonColor: Drupal.settings.commerce_checkoutpayment.buttoncolor,
+          logoUrl: Drupal.settings.commerce_checkoutpayment.logourl,
+          iconColor: Drupal.settings.commerce_checkoutpayment.iconcolor,
+        },
         cardCharged: function (event) {
           $('#cko-cc-paymenToken').val(event.data.paymentToken);
           $('#commerce-checkoutpayment-redirect-form').trigger('submit');
