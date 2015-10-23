@@ -152,18 +152,19 @@ class methods_creditcard extends methods_Abstract {
         foreach ($product_line_items as $key => $item) {
 
           $line_item[$key] = commerce_line_item_load($item['line_item_id']);
+          if(isset($line_item[$key]->commerce_product)){
+            $product_id = $line_item[$key]->commerce_product[LANGUAGE_NONE][0]['product_id'];
+            $product = commerce_product_load($product_id);
+            $price = commerce_product_calculate_sell_price($product);
+            $sell_price = number_format(commerce_currency_amount_to_decimal($price['amount'], $price['currency_code']), 2, '.', '');
 
-          $product_id = $line_item[$key]->commerce_product[LANGUAGE_NONE][0]['product_id'];
-          $product = commerce_product_load($product_id);
-          $price = commerce_product_calculate_sell_price($product);
-          $sell_price = number_format(commerce_currency_amount_to_decimal($price['amount'], $price['currency_code']), 2, '.', '');
-
-          $products[$key] = array(
-            'name' => commerce_line_item_title($line_item[$key]),
-            'sku' => $line_item[$key]->line_item_label,
-            'price' => $sell_price,
-            'quantity' => (int) $line_item[$key]->quantity,
-          );
+            $products[$key] = array(
+              'name' => commerce_line_item_title($line_item[$key]),
+              'sku' => $line_item[$key]->line_item_label,
+              'price' => $sell_price,
+              'quantity' => (int) $line_item[$key]->quantity,
+            );
+          }
         }
       }
 

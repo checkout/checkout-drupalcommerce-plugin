@@ -14,7 +14,7 @@
       s.src = "https://www.checkout.com/cdn/js/checkout.js";
     }
     else {
-      s.src = "//sandbox.checkout.com/js/v1/checkout.js";
+      s.src = "https://sandbox.checkout.com/js/v1/checkout.js";
     }
     head.appendChild(s);
     $('#commerce-checkoutpayment-redirect-form #edit-submit').click(function (event) {
@@ -46,10 +46,6 @@
         value: Drupal.settings.commerce_checkoutpayment.amount,
         currency: Drupal.settings.commerce_checkoutpayment.currency,
         paymentMode: Drupal.settings.commerce_checkoutpayment.localpayment,
-        logoUrl: Drupal.settings.commerce_checkoutpayment.logourl,
-        themeColor: Drupal.settings.commerce_checkoutpayment.themecolor,
-        buttonColor: Drupal.settings.commerce_checkoutpayment.buttoncolor,
-        iconColor: Drupal.settings.commerce_checkoutpayment.iconcolor,
         useCurrencyCode: Drupal.settings.commerce_checkoutpayment.currencycode,
         paymentToken: Drupal.settings.commerce_checkoutpayment.paymentToken,
         forceMobileRedirect: true,
@@ -76,7 +72,13 @@
         },
         invalidLightboxConfig: function () {
           reload = true;
-         }
+         },
+        ready: function (){
+           if (CheckoutIntegration.isMobile()) {
+            $('#cko-cc-redirectUrl').val(CheckoutIntegration.getRedirectionUrl());
+            
+           }
+        }
       };
 
       $('#edit-commerce-payment-payment-method-commerce-checkoutpaymentcommerce-payment-commerce-checkoutpayment').once('checkoutapi').change(function(){
