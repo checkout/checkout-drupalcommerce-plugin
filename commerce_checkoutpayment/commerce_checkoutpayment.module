@@ -355,7 +355,7 @@ function commerce_checkoutpayment_process_order() {
  */
 function commerce_checkoutpayment_success_order() {
 
-  if (!isset($_POST['cko-payment-token'])) {
+  if (!isset($_REQUEST['cko-payment-token'])) {
     drupal_goto();
   }
 
@@ -364,7 +364,7 @@ function commerce_checkoutpayment_success_order() {
   $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');
 
   $config['authorization'] = $payment_method['settings']['private_key'];
-  $config['paymentToken'] = $_POST['cko-payment-token'];
+  $config['paymentToken'] = $_REQUEST['cko-payment-token'];
 
   $api = CheckoutApi_Api::getApi(array('mode' => $payment_method['settings']['mode']));
   $object_charge = $api->verifyChargePaymentToken($config);
@@ -444,7 +444,7 @@ function commerce_checkoutpayment_redirect_form ($form, &$form_state, $order, $p
 
   $form['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Proceed to Checkout.Com'),
+    '#value' => t('Complete payment'),
     '#attached' => array(
       'js' => array(
         drupal_get_path('module', 'commerce_checkoutpayment') . '/includes/methods/js/checkoutapi.js' => array(
