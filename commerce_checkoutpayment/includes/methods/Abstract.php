@@ -40,22 +40,24 @@ abstract class methods_Abstract {
     $products = NULL;
 
     foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
-      $product_id = $line_item_wrapper->commerce_product->raw();
-      $product = commerce_product_load($product_id);
-      $price = commerce_product_calculate_sell_price($product);
-      $sell_price = number_format(commerce_currency_amount_to_decimal($price['amount'], $price['currency_code']), 2, '.', '');
+      if(isset($line_item_wrapper->commerce_product)){
+        $product_id = $line_item_wrapper->commerce_product->raw();
+        $product = commerce_product_load($product_id);
+        $price = commerce_product_calculate_sell_price($product);
+        $sell_price = number_format(commerce_currency_amount_to_decimal($price['amount'], $price['currency_code']), 2, '.', '');
 
-      // Add the line item to the return array.
-      $products[$delta] = array(
-        'productName' => commerce_line_item_title($line_item_wrapper->value()),
-        'price' => $sell_price,
-        'quantity' => round($line_item_wrapper->quantity->value()),
-        'sku' => '',
-      );
+        // Add the line item to the return array.
+        $products[$delta] = array(
+          'productName' => commerce_line_item_title($line_item_wrapper->value()),
+          'price' => $sell_price,
+          'quantity' => round($line_item_wrapper->quantity->value()),
+          'sku' => '',
+        );
 
-      // If it was a product line item, add the SKU.
-      if (in_array($line_item_wrapper->type->value(), commerce_product_line_item_types())) {
-        $products[$delta]['sku'] = $line_item_wrapper->line_item_label->value();
+        // If it was a product line item, add the SKU.
+        if (in_array($line_item_wrapper->type->value(), commerce_product_line_item_types())) {
+          $products[$delta]['sku'] = $line_item_wrapper->line_item_label->value();
+        }
       }
     }
     if ($products && !empty($products)) {
@@ -110,7 +112,7 @@ abstract class methods_Abstract {
 
     if ($respond_charge->isValid()) {
       if (preg_match('/^1[0-9]+$/', $respond_charge->getResponseCode())) {
-        $transaction->message = 'Your transaction has been successfully authorized with transaction id : ' . $respondCharge->getId();
+        $transaction->message = 'Your transaction has been successfully authorized with transaction id : ' . $respond_charge->getId();
 
         if(!$validate_request['status']){
           foreach($validate_request['message'] as $errormessage){
