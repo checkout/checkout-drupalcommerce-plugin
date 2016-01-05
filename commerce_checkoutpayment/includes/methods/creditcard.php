@@ -119,8 +119,6 @@ class methods_creditcard extends methods_Abstract {
     $shipping_address_config = NULL;
 
     $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
-
-    $billing_address = $order_wrapper->commerce_customer_billing->commerce_customer_address->value();
     $order_array = $order_wrapper->commerce_order_total->value();
     $product_line_items = $order->commerce_line_items[LANGUAGE_NONE];
 
@@ -168,13 +166,17 @@ class methods_creditcard extends methods_Abstract {
         }
       }
 
-      $billing_address_config = array(
-        'addressLine1' => $billing_address['thoroughfare'],
-        'addressLine2' => $billing_address['premise'],
-        'postcode' => $billing_address['postal_code'],
-        'country' => $billing_address['country'],
-        'city' => $billing_address['locality'],
-      );
+      $billing_address_config = array();
+      if (!empty($order_wrapper->commerce_customer_billing->commerce_customer_address)){
+        $billing_address = $order_wrapper->commerce_customer_billing->commerce_customer_address->value();
+        $billing_address_config = array(
+          'addressLine1' => $billing_address['thoroughfare'],
+          'addressLine2' => $billing_address['premise'],
+          'postcode' => $billing_address['postal_code'],
+          'country' => $billing_address['country'],
+          'city' => $billing_address['locality'],
+        );
+      }
 
       if (module_exists('commerce_shipping') && !empty($order_wrapper->commerce_customer_shipping->commerce_customer_address)) {
         $shipping_address = $order_wrapper->commerce_customer_shipping->commerce_customer_address->value();
