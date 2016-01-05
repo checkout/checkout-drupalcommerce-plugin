@@ -11,7 +11,7 @@
     s.type = 'text/javascript';
     s.async = true;
     if (Drupal.settings.commerce_checkoutpayment.mode === 'live') {
-      s.src = "https://www.checkout.com/cdn/js/checkout.js";
+      s.src = "https://cdn.checkout.com/js/checkout.js";
     }
     else {
       s.src = "https://sandbox.checkout.com/js/v1/checkout.js";
