@@ -19,22 +19,42 @@ abstract class methods_Abstract {
     $order_array = $order_wrapper->commerce_order_total->value();
     $default_currency = commerce_default_currency();
     $amount_cents = number_format(commerce_currency_convert($charge['amount'], $order_array['currency_code'], $default_currency), 0, '', '');
+    $chargeMode = $payment_method['settings']['is3D'];
+
+    if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+        $ip = $_SERVER['HTTP_CLIENT_IP'];
+    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
+    } else {
+        $ip = $_SERVER['REMOTE_ADDR'];
+    }
+
     $config['authorization'] = $payment_method['settings']['private_key'];
     $config['mode'] = $payment_method['settings']['mode'];
     $config['postedParam'] = array(
-      'email' => $order->mail,
-      'value' => $amount_cents,
-      'currency' => $default_currency,
-      'trackId' => $order->order_id,
+      'email'       => $order->mail,
+      'value'       => $amount_cents,
+      'currency'    => $default_currency,
+      'trackId'     => $order->order_id,
+      'chargeMode'  => $chargeMode,
+      'customerIp'  => $ip,
       'card' => array(
         'name' => "{$billing_address['first_name']} {$billing_address['last_name']}",
         'billingDetails' => array(
-          'addressLine1' => $billing_address['thoroughfare'],
-          'addressLine2' => $billing_address['premise'],
-          'postcode' => $billing_address['postal_code'],
-          'country' => $billing_address['country'],
-          'city' => $billing_address['locality'],
+          'addressLine1'  => $billing_address['thoroughfare'],
+          'addressLine2'  => $billing_address['premise'],
+          'postcode'      => $billing_address['postal_code'],
+          'country'       => $billing_address['country'],
+          'city'          => $billing_address['locality'],
         ),
+      ),
+      'metadata' => array(
+          'server'            => $_SERVER['HTTP_USER_AGENT'],
+          'plugin_version'    => CHECKOUT_API_PLUGIN_VERSION,
+          'lib_version'       => CheckoutApi_Client_Constant::LIB_VERSION,
+          'integration_type'  => 'PCI',
+          'time'              => date('Y-m-d H:i:s'),
+          'instanceId'        => $payment_method['instance_id']
       ),
     );
     $products = NULL;
@@ -111,8 +131,21 @@ abstract class methods_Abstract {
     $validate_request = $api::validateRequest($to_validate, $respond_charge);
 
     if ($respond_charge->isValid()) {
+
+      if($respond_charge->getRedirectUrl()){
+        drupal_goto($respond_charge->getRedirectUrl());
+        exit();
+      }
+
       if (preg_match('/^1[0-9]+$/', $respond_charge->getResponseCode())) {
-        $transaction->message = 'Your transaction has been successfully authorized with transaction id : ' . $respond_charge->getId();
+
+        $message = 'Your transaction has been successfully authorized with transaction id : ' . $respond_charge->getId();
+
+        if($respond_charge->getResponseCode()==10100){
+          $message = 'Your transaction has been flagged - chargeId : ' . $respond_charge->getId();
+        }
+
+        $transaction->message = $message;
 
         if(!$validate_request['status']){
           foreach($validate_request['message'] as $errormessage){

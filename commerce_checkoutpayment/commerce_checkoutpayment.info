@@ -10,7 +10,10 @@ core = 7.x
 ; Base module files
 files[] = commerce_checkoutpayment.module
 
-version = "7.x-1.1"
+
+; Information added by Drupal.org packaging script on 2016-12-14
+version = "7.x-2.9"
 core = "7.x"
 project = "commerce_checkoutpayment"
+datestamp = "1481702287"
 

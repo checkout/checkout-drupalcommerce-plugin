@@ -6,18 +6,11 @@ class methods_creditcard extends methods_Abstract {
    * Payment method callback: checkout form submission.
    */
   public function submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge) {
-
+    
     $config = parent::submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge);
-    if(isset($pane_values['cko-cc-paymenToken'])) {
-      $config['postedParam']['paymentToken'] = $pane_values['cko-cc-paymenToken'];
-    }
+    $instance = commerce_checkoutpayment_get_instance($payment_method);
+    $data = $instance->getExtraInit($order, $payment_method);
 
-    if (!empty($pane_values['cko-cc-redirectUrl'])) {
-      drupal_goto($pane_values['cko-cc-redirectUrl'] . '&trackId=' . $order->order_id);
-    }
-    else {
-      return $this->placeorder($config, $charge, $order, $payment_method);
-    }
   }
 
   /**
@@ -55,6 +48,8 @@ class methods_creditcard extends methods_Abstract {
     return $form;
   }
 
+
+
   /**
    * Payment method settings form.
    *
@@ -83,16 +78,15 @@ class methods_creditcard extends methods_Abstract {
 
       $config['publicKey'] = $payment_method['settings']['public_key'];
       $config['mode'] = $payment_method['settings']['mode'];
-      $config['iconcolor'] = $payment_method['settings']['iconcolor'];
       $config['logourl'] = $payment_method['settings']['logourl'];
-      $config['buttoncolor'] = $payment_method['settings']['buttoncolor'];
+      $config['title'] = $payment_method['settings']['title'];
       $config['themecolor'] = $payment_method['settings']['themecolor'];
       $config['currencycode'] = $payment_method['settings']['currencycode'];
       $config['email'] = $order->mail;
       $config['name'] = "{$billing_address['first_name']} {$billing_address['last_name']}";
       $config['amount'] = $amount_cents;
       $config['currency'] = $default_currency;
-      $config['localpayment'] = ($payment_method['settings']['localpayment'] == 'false') ? 'card' : 'mixed';
+      $config['paymentMode'] = $payment_method['settings']['paymentMode'];
       $config['paymentToken'] = $payment_token['token'];
 
       $array['script'] = $config;

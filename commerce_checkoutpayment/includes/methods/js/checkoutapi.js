@@ -1,11 +1,13 @@
-
 /**
  * @file
  * CheckoutIntegration Api javascript functions.
  */
 
 (function ($) {
+  'use strict';
+
   $(function () {
+
     var head = document.getElementsByTagName("head")[0];
     var s = document.createElement('script');
     s.type = 'text/javascript';
@@ -19,8 +21,8 @@
     head.appendChild(s);
     $('#commerce-checkoutpayment-redirect-form #edit-submit').click(function (event) {
         event.preventDefault();
-        if(typeof CheckoutIntegration !='undefined') {
-          if(!CheckoutIntegration.isMobile()){
+        if (typeof CheckoutIntegration != 'undefined') {
+          if (!CheckoutIntegration.isMobile()) {
             CheckoutIntegration.open();
             $('#commerce-checkoutpayment-redirect-form #edit-submit').attr("disabled", "disabled");
           }
@@ -29,7 +31,7 @@
             $('#commerce-checkoutpayment-redirect-form').trigger('submit');
           }
         }
-    });
+      });
   });
 
   Drupal.behaviors.commerce_checkoutpayment = {
@@ -38,23 +40,21 @@
       var reload = false;
       window.CKOConfig = {
         debugMode: false,
-        renderMode: 2, //displaying widget:- 0 All, 1 Pay Button Only, 2 Icons Only
+        renderMode: 2, // Displaying widget:- 0 All, 1 Pay Button Only, 2 Icons Only.
         publicKey: Drupal.settings.commerce_checkoutpayment.publicKey,
         customerEmail: Drupal.settings.commerce_checkoutpayment.email,
         namespace: 'CheckoutIntegration',
         customerName: Drupal.settings.commerce_checkoutpayment.name,
         value: Drupal.settings.commerce_checkoutpayment.amount,
         currency: Drupal.settings.commerce_checkoutpayment.currency,
-        paymentMode: Drupal.settings.commerce_checkoutpayment.localpayment,
+        paymentMode: Drupal.settings.commerce_checkoutpayment.paymentMode,
         useCurrencyCode: Drupal.settings.commerce_checkoutpayment.currencycode,
         paymentToken: Drupal.settings.commerce_checkoutpayment.paymentToken,
         forceMobileRedirect: true,
-        widgetContainerSelector: '.widget-container', //The .class of the element hosting the Checkout.js widget card icons
+        widgetContainerSelector: '.widget-container', // The .class of the element hosting the Checkout.js widget card icons.
         styling: {
           themeColor: Drupal.settings.commerce_checkoutpayment.themecolor,
-          buttonColor: Drupal.settings.commerce_checkoutpayment.buttoncolor,
           logoUrl: Drupal.settings.commerce_checkoutpayment.logourl,
-          iconColor: Drupal.settings.commerce_checkoutpayment.iconcolor,
         },
         cardCharged: function (event) {
           $('#cko-cc-paymenToken').val(event.data.paymentToken);
@@ -64,7 +64,7 @@
         lightboxDeactivated: function () {
           $('#commerce-checkoutpayment-redirect-form #edit-submit').removeAttr("disabled");
           if (reload) {
-              window.location.reload();
+            window.location.reload();
           }
         },
         paymentTokenExpired: function () {
@@ -72,7 +72,7 @@
         },
         invalidLightboxConfig: function () {
           reload = true;
-         },
+        },
         ready: function (){
            if (CheckoutIntegration.isMobile()) {
             $('#cko-cc-redirectUrl').val(CheckoutIntegration.getRedirectionUrl());
@@ -81,14 +81,16 @@
         }
       };
 
-      $('#edit-commerce-payment-payment-method-commerce-checkoutpaymentcommerce-payment-commerce-checkoutpayment').once('checkoutapi').change(function(){
+      $('#edit-commerce-payment-payment-method-commerce-checkoutpaymentcommerce-payment-commerce-checkoutpayment').once('checkoutapi').change(function () {
         var interVal2 = setInterval(function () {
           if ($('.widget-container').length) {
-            CheckoutIntegration.render(window.CKOConfig);
-            clearInterval(interVal2);
+            if (typeof CheckoutIntegration != 'undefined') {
+              CheckoutIntegration.render(window.CKOConfig);
+              clearInterval(interVal2);
+            }
           }
-        }, 500);  
-      }); 
+        }, 500);
+      });
     }
-  }
+  };
 })(jQuery);
