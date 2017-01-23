@@ -1,4 +1,4 @@
-Checkout.Com (http://www.checkout.com/) Payment Gateway integration with Drupal.
+Checkout.Com (https://www.checkout.com/) Payment Gateway integration with Drupal.
 
 
 Introduction
@@ -19,7 +19,7 @@ Click on the edit button to edit settings.
 
 To configure your Checkout.com payment module,
 
-Enter the private key and publishable key from Checkout.com. (These details will be provided to you by your account manager.)
+Enter the secret key and public key from Checkout.com. (These details will be provided to you by your account manager.)
 
 Select The Transaction method.
 
@@ -27,14 +27,14 @@ Set gateway auto capture time. (Default 0).
 
 Select Method type.
 
-Webhook
+Webhook/success url
 =============
 Webhook url: example.com/checkoutapi/process
 Success url: example.com/commerce_checkoutpayment/success
+Success url: example.com/commerce_checkoutpayment/fail
 
 
 Maintainers
 ===========
 Current maintainers:
-* Dhiraj Gangoosirdar  - dhiraj.gangoosirdar@checkout.com
-* Jason Footing  - https://www.drupal.org/user/3217125/
+* Integration Team  - https://www.drupal.org/user/2951501/

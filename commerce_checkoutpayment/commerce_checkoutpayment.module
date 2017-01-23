@@ -6,6 +6,18 @@
  * Commerce Checkoutpayment offers a PCI-compliant way to process payments.
  */
 
+const CHECKOUT_API_RESPONSE_CODE_APPROVED       = 10000;
+const CHECKOUT_API_RESPONSE_CODE_APPROVED_RISK  = 10100;
+const CHECKOUT_API_PLUGIN_VERSION               = '7.x-2.9';
+const HOSTED_URL_SANDOX             = 'https://secure.checkout.com/sandbox/payment/';
+const HOSTED_URL_LIVE               = 'https://secure.checkout.com/payment/';
+const EVENT_TYPE_CHARGE_SUCCEEDED   = 'charge.succeeded';
+const EVENT_TYPE_CHARGE_CAPTURED    = 'charge.captured';
+const EVENT_TYPE_CHARGE_REFUNDED    = 'charge.refunded';
+const EVENT_TYPE_CHARGE_VOIDED      = 'charge.voided';
+const EVENT_TYPE_INVOICE_CANCELLED  = 'invoice.cancelled';
+
+
 /**
  * Implements hook_commerce_payment_method_info().
  */
@@ -52,15 +64,15 @@ function commerce_checkoutpayment_settings_default() {
     'mode' => 'live',
     'type' => 'pci',
     'localpayment' => 'false',
-    'iconcolor' => '',
     'logourl' => '',
-    'buttoncolor' => '',
+    'formButtonColor' => '',
     'themecolor' => '',
     'currencycode' => 'true',
+    'title' => '',
     'timeout' => 60,
     'card_types' => array(),
     'payment_action' => COMMERCE_CREDIT_AUTH_ONLY,
-    'autocaptime' => 0,
+    'autocaptime' => 0
   );
 }
 
@@ -76,7 +88,7 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
   $settings = (array) $settings + commerce_checkoutpayment_settings_default();
   $form['private_key'] = array(
     '#type' => 'textfield',
-    '#title' => t('Private Key'),
+    '#title' => t('Secret Key'),
     '#required' => TRUE,
     '#description' => t('The Checkout.com account secret API key to use .'),
     '#default_value' => isset($settings['private_key']) ? $settings['private_key'] : '',
@@ -84,7 +96,7 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
 
   $form['public_key'] = array(
     '#type' => 'textfield',
-    '#title' => t('Publishable API Key'),
+    '#title' => t('Public Key'),
     '#required' => TRUE,
     '#description' => t('The Checkout.com account publishable API key to use.'),
     '#default_value' => isset($settings['public_key']) ? $settings['public_key'] : '',
@@ -92,12 +104,12 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
 
   $form['mode'] = array(
     '#type' => 'select',
-    '#title' => t('Transaction Server'),
+    '#title' => t('Endpoint Url Mode'),
     '#description' => t('Perform transactions on the production server or on the testing server.'),
     '#default_value' => $settings['mode'],
     '#options' => array(
-      'live' => t('Live - use for processing real transactions'),
-      'sandbox' => t('Test - sandbox for testing. Require a test account'),
+      'live' => t('Live'),
+      'sandbox' => t('Sandbox'),
     ),
   );
 
@@ -126,14 +138,15 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
     '#options' => commerce_payment_credit_card_types(),
     '#default_value' => $settings['card_types'],
   );
-  $form['localpayment'] = array(
+  $form['paymentMode'] = array(
     '#type' => 'select',
-    '#title' => t('Enable LocalPayment'),
+    '#title' => t('Payment Mode'),
     '#options' => array(
-      'true' => t('Yes'),
-      'false' => t('No'),
+      'cards' => t('Card'),
+      'localPayment' => t('Local Payment'),
+      'mixed' => t('Mixed')
     ),
-    '#default_value' => $settings['localpayment'],
+    '#default_value' => $settings['paymentMode'],
   );
 
   $form['type'] = array(
@@ -145,6 +158,17 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
       'nonpci' => t('No'),
     ),
     '#default_value' => $settings['type'],
+  );
+
+  $form['is3D'] = array(
+    '#type' => 'select',
+    '#title' => t('Enable 3D'),
+    '#description' => t('If you want to process all transactions as 3D secure, select Yes'),
+    '#options' => array(
+      '1' => t('No'),
+      '2' => t('Yes'),
+    ),
+    '#default_value' => $settings['is3D'],
   );
 
   $form['timeout'] = array(
@@ -164,28 +188,21 @@ function commerce_checkoutpayment_settings_form($settings = array()) {
   $form['themecolor'] = array(
     '#type' => 'textfield',
     '#title' => t('Theme color'),
-    '#description' => t('Set theme color for checkout.js'),
+    '#description' => t('Set theme color for checkout hosted'),
     '#default_value' => $settings['themecolor'],
   );
 
-  $form['buttoncolor'] = array(
+  $form['title'] = array(
     '#type' => 'textfield',
-    '#title' => t('Button color'),
-    '#description' => t('Set color for Pay now button'),
-    '#default_value' => $settings['buttoncolor'],
-  );
-
-  $form['iconcolor'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Icon color'),
-    '#description' => t('Set icon color for checkout.js'),
-    '#default_value' => $settings['iconcolor'],
+    '#title' => t('Title'),
+    '#description' => t('Add a title on the hosted payment page'),
+    '#default_value' => $settings['title'],
   );
 
   $form['currencycode'] = array(
     '#type' => 'select',
     '#title' => t('Widget currency format'),
-    '#description' => t('Display currency code or currency symbol on the checkout.js'),
+    '#description' => t('Display currency code or currency symbol on the checkout hosted'),
     '#options' => array(
       'true' => t('Code'),
       'false' => t('Symbol'),
@@ -226,11 +243,13 @@ function commerce_checkoutpayment_submit_form_validate($payment_method, $pane_fo
     }
   }
   else {
+
     if (empty($pane_values['credit_card']['cko-cc-paymenToken'])) {
       drupal_set_message($data['paymentToken']['message'], 'error');
       return FALSE;
     }
     return TRUE;
+
   }
 }
 
@@ -259,14 +278,14 @@ function commerce_checkoutpayment_get_instance($settings) {
  */
 function commerce_checkoutpayment_submit_charge($payment_method, $pane_form, $pane_values, $order, $charge) {
 
-  if ($payment_method['settings']['type'] == 'pci') {
-    $instance = commerce_checkoutpayment_get_instance($payment_method);
+  $instance = commerce_checkoutpayment_get_instance($payment_method);
 
-    return $instance->submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge);
+  if ($payment_method['settings']['type'] == 'pci') {
+      return $instance->submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge);
   }
   else {
-
-    return TRUE;
+      return $instance->submitFormCharge($payment_method, $pane_form, $pane_values, $order, $charge);
+    //return TRUE;
   }
 }
 
@@ -291,17 +310,39 @@ function commerce_checkoutpayment_menu() {
     'type' => MENU_CALLBACK,
   );
 
+  $items['commerce_checkoutpayment/process_charge'] = array(
+    'title' => 'Create Order page',
+    'page callback' => 'commerce_checkoutpayment_process_charge',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['commerce_checkoutpayment/fail'] = array(
+    'title' => 'Fail Order page',
+    'page callback' => 'commerce_checkoutpayment_fail_order',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+
   return $items;
 }
 
 /**
  * Update order status through webhook url : example.com/checkoutapi/process.
  */
-function commerce_checkoutpayment_process_order() {
+function commerce_checkoutpayment_process_order() { 
 
-  $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');
   $post_data = file_get_contents('php://input');
   if ($post_data) {
+
+    $data = json_decode($post_data);
+    $eventType = $data->eventType;
+
+    module_load_include('php', 'commerce_checkoutpayment', 'includes/autoload');
+    $instanceId = $data->message->metadata->instanceId;
+    $payment_method = commerce_payment_method_instance_load($instanceId);
+
     $api = CheckoutApi_Api::getApi(array('mode' => $payment_method['settings']['mode']));
     $object_charge = $api->chargeToObj($post_data);
 
@@ -320,26 +361,86 @@ function commerce_checkoutpayment_process_order() {
       $transaction->amount = $charge['amount'];
       $transaction->currency_code = $charge['currency_code'];
 
-      if ($object_charge->getCaptured()) {
+      if($eventType == EVENT_TYPE_CHARGE_SUCCEEDED){
+          return http_response_code(200);
+      } 
+      elseif ($eventType == EVENT_TYPE_CHARGE_CAPTURED) {
 
-        $transaction->status = COMMERCE_PAYMENT_STATUS_SUCCESS;
-        $transaction->message = 'Your transaction has been successfully captured';
-        commerce_payment_transaction_save($transaction);
-        commerce_order_status_update($order, 'processing', FALSE, TRUE, 'Your payment has been successfully completed');
+        $totalAmount = $charge['amount'];
+        $captureAmount = $object_charge->getValue();
+
+        if($totalAmount == $captureAmount){
+          $transaction->status = COMMERCE_PAYMENT_STATUS_SUCCESS;
+          $transaction->message = 'Transaction has been successfully captured. Captured chargeId : '.$object_charge->getId();
+          commerce_payment_transaction_save($transaction);
+          commerce_order_status_update($order, 'processing', FALSE, TRUE, 'Transaction has been successfully captured');
+        }
+        else {
+          $transaction->status = COMMERCE_PAYMENT_STATUS_SUCCESS;
+          $transaction->message = 'Your transaction has been partially captured. Captured chargeId : '.$object_charge->getId();
+          $transaction->amount = $object_charge->getValue();
+          $transaction->currency_code = $object_charge->getCurrency();
+          commerce_payment_transaction_save($transaction);
+          commerce_order_status_update($order, 'processing', FALSE, TRUE, 'Transaction has been partially captured.');
+        }
+
+        return http_response_code(200);
       }
-      elseif ($object_charge->getRefunded()) {
+      elseif ($eventType == EVENT_TYPE_CHARGE_REFUNDED) {
 
-        $transaction->message = 'Your payment has been refunded';
+        $param['chargeId'] = $object_charge->getId();
+        $param['authorization'] = $payment_method['settings']['private_key'];
+        $refundInfo = $api->getRefundAmountInfo($param);
+
+        $totalAmount = $charge['amount'];
+        $refundAmount = $object_charge->getValue();
+        $transaction->amount = $refundInfo['totalRefunded'];
+        
+        if($totalAmount == $refundAmount || $totalAmount == $refundInfo['totalRefunded'] ){ 
+          $transaction->amount = $refundInfo['totalRefunded'];
+          $transaction->currency_code = $object_charge->getCurrency();
+          $transaction->message = 'Transaction has been fully refunded. Refunded chargeId : '.$object_charge->getId();
+          $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+          commerce_payment_transaction_save($transaction);
+          commerce_order_status_update($order, 'canceled', FALSE, TRUE, 'Transaction has been fully refunded.');
+        } 
+        elseif ($refundInfo['capturedAmount'] == $refundInfo['totalRefunded']) {
+          $transaction->amount = $refundAmount;
+          $transaction->currency_code = $object_charge->getCurrency();
+          $transaction->message = 'Transaction has been fully refunded. Refunded chargeId : '.$object_charge->getId();
+          $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+          commerce_payment_transaction_save($transaction);
+          commerce_order_status_update($order, 'canceled', FALSE, TRUE, 'Transaction has been fully refunded.');
+        }
+        else { 
+          $message = 'Transaction has been partially refunded. Refunded chargeId : '.$object_charge->getId();
+
+          $transaction->amount = $refundAmount;
+          $transaction->currency_code = $object_charge->getCurrency();
+          $transaction->message = $message;
+          $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+          commerce_payment_transaction_save($transaction);
+        }
+        return http_response_code(200);
+      }
+      elseif ($eventType == EVENT_TYPE_CHARGE_VOIDED) {
+
+        $transaction->message = 'Transaction has been voided. Voided chargeId : '.$object_charge->getId();;
         $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
         commerce_payment_transaction_save($transaction);
-        commerce_order_status_update($order, 'canceled', FALSE, TRUE, 'Your payment has been refunded');
+        commerce_order_status_update($order, 'canceled', FALSE, TRUE, 'Transaction has been voided');
+        return http_response_code(200);
       }
-      elseif (!$object_charge->getAuthorised()) {
+      elseif ($eventType == EVENT_TYPE_INVOICE_CANCELLED) {
 
-        $transaction->message = 'Your payment has been canceled';
+        $transaction->message = 'Transaction has expired. Cancelled chargeId : '.$object_charge->getId();;
         $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
         commerce_payment_transaction_save($transaction);
-        commerce_order_status_update($order, 'canceled', FALSE, TRUE, 'Your payment has been canceled');
+        commerce_order_status_update($order, 'canceled', FALSE, TRUE, 'Transaction has expired');
+        return http_response_code(200);
+      }
+      else {
+         return http_response_code(400);
       }
     }
     else {
@@ -361,7 +462,9 @@ function commerce_checkoutpayment_success_order() {
 
   module_load_include('php', 'commerce_checkoutpayment', 'includes/autoload');
 
-  $payment_method = commerce_payment_method_instance_load('commerce_checkoutpayment|commerce_payment_commerce_checkoutpayment');
+  // To do get instance id from session
+  $instance_id = $_SESSION['cko_instance_id'];
+  $payment_method = commerce_payment_method_instance_load($instance_id);
 
   $config['authorization'] = $payment_method['settings']['private_key'];
   $config['paymentToken'] = $_REQUEST['cko-payment-token'];
@@ -391,26 +494,34 @@ function commerce_checkoutpayment_success_order() {
 
   if (preg_match('/^1[0-9]+$/', $object_charge->getResponseCode())) {
     $transaction->message = 'Your transaction has been successfully authorized with transaction id : ' . $object_charge->getId();
-    if(!$validate_request['status']){
-      foreach($validate_request['message'] as $errormessage){
-        $transaction->message .= $errormessage . '. ';
-      }
-    }
     $transaction->status = COMMERCE_PAYMENT_STATUS_PENDING;
-
     commerce_payment_transaction_save($transaction);
     $order = commerce_order_status_update($order, 'checkout_complete', FALSE, TRUE, 'Your payment has been successfully completed');
-
+    commerce_checkout_complete($order);
+    drupal_goto(commerce_checkout_order_uri($order));
   }
-  else {
+  else { 
+    $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+    $transaction->message = $object_charge->getRawRespond();
+    commerce_payment_transaction_save($transaction);
+    drupal_set_message(t('An error has occured while processing your transaction. Please verify your information again or try a different card.'), 'error');
+    $order = commerce_order_status_update($order, 'checkout_review', FALSE, TRUE, t('Proceed to review page'));
+    drupal_goto('checkout/' . $order->order_id . '/review');
     watchdog('checkoutpayment_return_url', '!charge', array('!charge' => $object_charge->getRawRespond()), WATCHDOG_WARNING);
   }
 
-  // Calling this method order status will be changed to "Checkout_complete".
-  commerce_checkout_complete($order);
+}
 
-  // Redirect to order completed page or review page.
-  return drupal_goto(commerce_checkout_order_uri($order));
+/**
+*
+* Verify Response code
+*/
+function responseValidation($result) {
+  $responseCode       = (int)$result->getResponseCode();
+  if ($responseCode !== CHECKOUT_API_RESPONSE_CODE_APPROVED && $responseCode !== CHECKOUT_API_RESPONSE_CODE_APPROVED_RISK) {
+      return false;
+  }
+  return true;
 }
 
 /**
@@ -418,49 +529,319 @@ function commerce_checkoutpayment_success_order() {
  */
 function commerce_checkoutpayment_redirect_form ($form, &$form_state, $order, $payment_method) {
 
+  global $base_url;
+
+  $_SESSION['cko_instance_id'] = $payment_method['instance_id'];
+  $instance_id = $payment_method['instance_id'];
+  $payment_method = commerce_payment_method_instance_load($instance_id);
+
   $instance = commerce_checkoutpayment_get_instance($payment_method);
   $data = $instance->getExtraInit($order, $payment_method);
+  $mode = $payment_method['settings']['mode'];
+  $hppUrl = $mode == 'sandbox' ? HOSTED_URL_SANDOX : HOSTED_URL_LIVE;
 
-  $form['pay_method_container'] = array(
-    '#type' => 'hidden',
-    '#attributes' => array(
-      'class' => array('widget-container'),
-    ),
-  );
-  $form['cko-cc-redirectUrl'] = array(
-    '#type' => 'hidden',
-    '#value' => '',
-    '#attributes' => array(
-      'id' => array('cko-cc-redirectUrl'),
-    ),
-  );
-  $form['cko-cc-paymenToken'] = array(
-    '#type' => 'hidden',
-    '#value' => '',
-    '#attributes' => array(
-      'id' => array('cko-cc-paymenToken'),
-    ),
-  );
+  $_SESSION['orderId'] =  $order->order_id;
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $billing_address = $order_wrapper->commerce_customer_billing->commerce_customer_address->value();
+  $currencyCode = $order_wrapper->commerce_order_total->value()['currency_code'];
 
-  $form['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Complete payment'),
-    '#attached' => array(
-      'js' => array(
-        drupal_get_path('module', 'commerce_checkoutpayment') . '/includes/methods/js/checkoutapi.js' => array(
-          'type' => 'file',
-        ),
-        array(
-          'data' => array('commerce_checkoutpayment' => $data['script']),
-          'type' => 'setting',
-        ),
+  $form['publicKey'] = array(
+      '#type' => 'hidden',
+      '#value' => $data['script']['publicKey'],
+      '#attributes' => array(
+        'name' => array('publicKey'),
       ),
-    ),
+    );
+    $form['paymentToken'] = array(
+      '#type' => 'hidden',
+      '#value' => $data['paymentToken']['token'],
+      '#attributes' => array(
+        'name' => array('paymentToken'),
+      ),
+    );
+    $form['customerEmail'] = array(
+      '#type' => 'hidden',
+      '#value' => $data['script']['email'],
+      '#attributes' => array(
+        'name' => array('customerEmail'),
+      ),
+    );
+    $form['value'] = array(
+      '#type' => 'hidden',
+      '#value' => $data['script']['amount'],
+      '#attributes' => array(
+        'name' => array('value'),
+      ),
+    );
+    $form['currency'] = array(
+      '#type' => 'hidden',
+      '#value' => $currencyCode,
+      '#attributes' => array(
+        'name' => array('currency'),
+      ),
+    );
+    $form['cardFormMode'] = array(
+      '#type' => 'hidden',
+      '#value' => 'cardTokenisation',
+      '#attributes' => array(
+        'name' => array('cardFormMode'),
+      ),
+    );
+    $form['paymentMode'] = array(
+      '#type' => 'hidden',
+      '#value' => $data['script']['paymentMode'],
+      '#attributes' => array(
+        'name' => array('paymentMode'),
+      ),
+    );
+    $form['redirectUrl'] = array(
+      '#type' => 'hidden',
+      '#value' => $base_url . '/commerce_checkoutpayment/process_charge',
+      '#attributes' => array(
+        'name' => array('redirectUrl'),
+      ),
+    );
+    $form['cancelUrl'] = array(
+      '#type' => 'hidden',
+      '#value' => $base_url . '/commerce_checkoutpayment/fail',
+      '#attributes' => array(
+        'name' => array('cancelUrl'),
+      ),
+    );
+    $form['contextId'] = array(
+      '#type' => 'hidden',
+      '#value' => $order->order_id,
+      '#attributes' => array(
+        'name' => array('contextId'),
+      ),
+    );
+    $form['themeColor'] = array(
+      '#type' => 'hidden',
+      '#value' => $data['script']['themecolor'],
+      '#attributes' => array(
+        'name' => array('themeColor'),
+      ),
+    );
+    $form['title'] = array(
+      '#type' => 'hidden',
+      '#value' => $data['script']['title'],
+      '#attributes' => array(
+        'name' => array('title'),
+      ),
+    );
+    $form['logoUrl'] = array(
+      '#type' => 'hidden',
+      '#value' => $data['script']['logourl'],
+      '#attributes' => array(
+        'name' => array('logoUrl'),
+      ),
+    );
+    $form['billingDetails']= array(
+      '#type' => 'hidden',
+      '#value' => '{"addressLine1":"'.$billing_address['thoroughfare'].'",
+                    "addressLine2":"'.$billing_address['premise'].'",
+                    "postcode":"'.$billing_address['postal_code'].'",
+                    "country":"'.$billing_address['country'].'",
+                    "city":"'.$billing_address['locality'].'",
+                    "state":"'.$billing_address['administrative_area'].'"
+                   }',
+      '#attributes' => array(
+        'name' => array('billingDetails')
+      ),
+    );
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => 'Submit'
+    );
+
+    $form['#action'] = url($hppUrl);
+
+    return $form;
+}
+
+/**
+*
+*Process payment with card token
+*
+*/
+function commerce_checkoutpayment_process_charge(){
+
+  if($_REQUEST['cko-card-token']){
+
+    $cardToken = $_REQUEST['cko-card-token'];
+
+    if(!$_SESSION['orderId']){
+      drupal_goto();
+    }
+    else {
+      $order = commerce_order_load($_SESSION['orderId']);
+    }
+  }
+
+  module_load_include('php', 'commerce_checkoutpayment', 'includes/autoload');
+  $instance_id = $_SESSION['cko_instance_id'];
+  $payment_method = commerce_payment_method_instance_load($instance_id);
+
+  $Api = CheckoutApi_Api::getApi(array('mode'=>$payment_method['settings']['mode']));
+
+  $secretKey      = $payment_method['settings']['private_key'];
+  $config         = array();
+  $config['mode'] = $payment_method['settings']['mode'];
+
+  $transactionMethod  = $payment_method['settings']['payment_action'];
+  $autoCapTime        = $payment_method['settings']['autocaptime'];
+  $autoCapture        = $transactionMethod == 'authorize' ? CheckoutApi_Client_Constant::AUTOCAPUTURE_AUTH : CheckoutApi_Client_Constant::AUTOCAPUTURE_CAPTURE;
+  $chargeMode = $payment_method['settings']['is3D'];
+
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $order_total = $order_wrapper->commerce_order_total->value()['amount'];
+  $currencyCode = $order_wrapper->commerce_order_total->value()['currency_code'];
+  $billing_address = $order_wrapper->commerce_customer_billing->commerce_customer_address->value();
+  $customerName       = $billing_address['first_name']. " " . $billing_address['last_name'];
+  $email              = $order->mail;
+    
+  if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+      $ip = $_SERVER['HTTP_CLIENT_IP'];
+  } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+      $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
+  } else {
+      $ip = $_SERVER['REMOTE_ADDR'];
+  }
+
+  $products = NULL;
+  foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+      if(isset($line_item_wrapper->commerce_product)){
+        $product_id = $line_item_wrapper->commerce_product->raw();
+        $product = commerce_product_load($product_id);
+        $price = commerce_product_calculate_sell_price($product);
+        $sell_price = number_format(commerce_currency_amount_to_decimal($price['amount'], $price['currency_code']), 2, '.', '');
+
+        // Add the line item to the return array.
+        $products[$delta] = array(
+          'productName' => commerce_line_item_title($line_item_wrapper->value()),
+          'price' => $sell_price,
+          'quantity' => round($line_item_wrapper->quantity->value()),
+          'sku' => '',
+        );
+
+        // If it was a product line item, add the SKU.
+        if (in_array($line_item_wrapper->type->value(), commerce_product_line_item_types())) {
+          $products[$delta]['sku'] = $line_item_wrapper->line_item_label->value();
+        }
+      }
+  }
+  
+  $config['postedParam'] = array (
+      'trackId'           => $order->order_number,
+      'value'             => $order_total,
+      'currency'          => $currencyCode,
+      'autoCapture'       => $autoCapture,
+      'chargeMode'        => $chargeMode,
+      'customerIp'        => $ip,
+      'autoCapTime'       => $autoCapTime,
+      'email'             => $email,
+      'customerName'          => $customerName,
+      'email'             => $email,
+      'metadata'          => array(
+          'server'            => $_SERVER['HTTP_USER_AGENT'],
+          'plugin_version'    => CHECKOUT_API_PLUGIN_VERSION,
+          'lib_version'       => CheckoutApi_Client_Constant::LIB_VERSION,
+          'integration_type'  => 'Hosted',
+          'time'              => date('Y-m-d H:i:s'),
+          'instanceId'        => $instance_id
+      ),
+      'cardToken'         => $cardToken
   );
 
-  $form['#action'] = url('checkout/' . $order->order_id . '/payment/return/' . $order->data['payment_redirect_key']);
+  $config['authorization']    = $secretKey;
 
-  return $form;
+  if (!empty($products)) {
+    $config['postedParam']['products'] = $products;
+  }
+
+  if (module_exists('commerce_shipping') && !empty($order_wrapper->commerce_customer_shipping->commerce_customer_address)) {
+      $shipping_address = $order_wrapper->commerce_customer_shipping->commerce_customer_address->value();
+
+      // Add the shipping address parameters to the request.
+      $shipping_array = array(
+        'addressLine1' => $shipping_address['thoroughfare'],
+        'addressLine2' => $shipping_address['premise'],
+        'postcode' => $shipping_address['postal_code'],
+        'country' => $shipping_address['country'],
+        'city' => $shipping_address['locality'],
+      );
+
+      $config['postedParam']['shippingDetails'] = $shipping_array;
+  }
+
+  $result = $Api->createCharge($config);
+
+  $transaction = commerce_payment_transaction_new($payment_method['method_id'], $order->order_id);
+  $transaction->instance_id = $payment_method['instance_id'];
+  $transaction->amount = $order_total;
+  $transaction->currency_code = $currencyCode;
+
+  if ($Api->getExceptionState()->hasError()) {
+    $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+    commerce_payment_transaction_save($transaction);
+    drupal_set_message(t('An error has occured while processing your transaction. Please verify your information again or try a different card.'), 'error');
+    $order = commerce_order_status_update($order, 'checkout_review', FALSE, TRUE, t('Proceed to review page'));
+    drupal_goto('checkout/' . $order->order_id . '/review');
+    watchdog('checkoutpayment_return_url', '!charge', array('!charge' => $result), WATCHDOG_WARNING);
+  }
+
+  if (!$result->isValid() || !responseValidation($result)) {
+    $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+    commerce_payment_transaction_save($transaction);
+    drupal_set_message(t('An error has occured while processing your transaction. Please verify your card information or try a different card.'), 'error');
+    $order = commerce_order_status_update($order, 'checkout_review', FALSE, TRUE, t('Proceed to review page'));
+    drupal_goto('checkout/' . $order->order_id . '/review');
+    watchdog('checkoutpayment_return_url', '!charge', array('!charge' => $result->getRawOutput()), WATCHDOG_WARNING);
+  } 
+  else {
+
+    if($result->getRedirectUrl()){
+        drupal_goto($result->getRedirectUrl());
+        exit();
+    }
+
+    $message = 'Your transaction has been successfully authorized with chargeId : ' . $result->getId();
+
+    if($result->getResponseCode()==10100){
+      $message = 'Your transaction has been flagged - chargeId : ' . $result->getId();
+    }
+
+    $transaction->status = COMMERCE_PAYMENT_STATUS_PENDING;
+    $transaction->message = $message;
+    commerce_payment_transaction_save($transaction);
+    $order = commerce_order_status_update($order, 'checkout_complete', FALSE, TRUE, 'Your payment has been successfully completed');
+    commerce_checkout_complete($order);
+    drupal_goto(commerce_checkout_order_uri($order));
+  }
+
+}
+
+function commerce_checkoutpayment_fail_order(){ 
+  if(!$_SESSION['orderId']){
+      drupal_goto();
+  }
+  else {
+    $order = commerce_order_load($_SESSION['orderId']);
+  }
+
+  module_load_include('php', 'commerce_checkoutpayment', 'includes/autoload');
+
+  $instance_id = $_SESSION['cko_instance_id'];
+  $payment_method = commerce_payment_method_instance_load($instance_id);
+
+  $transaction = commerce_payment_transaction_new($payment_method['method_id'], $order->order_id);
+  $transaction->instance_id = $payment_method['instance_id'];
+
+  $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+  commerce_payment_transaction_save($transaction);
+  drupal_set_message(t('An error has occured. Your order has been canceled.'), 'error');
+  $order = commerce_order_status_update($order, 'checkout_review', FALSE, TRUE, t('Proceed to review page'));
+  drupal_goto('checkout/' . $order->order_id . '/review');
 }
 
 /**
