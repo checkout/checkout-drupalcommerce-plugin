@@ -8,7 +8,7 @@
 
 const CHECKOUT_API_RESPONSE_CODE_APPROVED       = 10000;
 const CHECKOUT_API_RESPONSE_CODE_APPROVED_RISK  = 10100;
-const CHECKOUT_API_PLUGIN_VERSION               = '7.x-2.9';
+const CHECKOUT_API_PLUGIN_VERSION               = '7.x-2.10';
 const HOSTED_URL_SANDOX             = 'https://secure.checkout.com/sandbox/payment/';
 const HOSTED_URL_LIVE               = 'https://secure.checkout.com/payment/';
 const EVENT_TYPE_CHARGE_SUCCEEDED   = 'charge.succeeded';
@@ -72,7 +72,9 @@ function commerce_checkoutpayment_settings_default() {
     'timeout' => 60,
     'card_types' => array(),
     'payment_action' => COMMERCE_CREDIT_AUTH_ONLY,
-    'autocaptime' => 0
+    'autocaptime' => 0,
+    'paymentMode' => 'cards',
+    'is3D' => false
   );
 }
 
