@@ -68,7 +68,7 @@ abstract class methods_Abstract {
 
         // Add the line item to the return array.
         $products[$delta] = array(
-          'productName' => commerce_line_item_title($line_item_wrapper->value()),
+          'name' => commerce_line_item_title($line_item_wrapper->value()),
           'price' => $sell_price,
           'quantity' => round($line_item_wrapper->quantity->value()),
           'sku' => '',

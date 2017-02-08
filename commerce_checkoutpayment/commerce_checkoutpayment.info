@@ -12,7 +12,7 @@ files[] = commerce_checkoutpayment.module
 
 
 ; Information added by Drupal.org packaging script on 2016-12-14
-version = "7.x-2.9"
+version = "7.x-2.11"
 core = "7.x"
 project = "commerce_checkoutpayment"
 datestamp = "1481702287"

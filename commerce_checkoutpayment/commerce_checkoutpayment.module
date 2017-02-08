@@ -8,7 +8,7 @@
 
 const CHECKOUT_API_RESPONSE_CODE_APPROVED       = 10000;
 const CHECKOUT_API_RESPONSE_CODE_APPROVED_RISK  = 10100;
-const CHECKOUT_API_PLUGIN_VERSION               = '7.x-2.9';
+const CHECKOUT_API_PLUGIN_VERSION               = '7.x-2.11';
 const HOSTED_URL_SANDOX             = 'https://secure.checkout.com/sandbox/payment/';
 const HOSTED_URL_LIVE               = 'https://secure.checkout.com/payment/';
 const EVENT_TYPE_CHARGE_SUCCEEDED   = 'charge.succeeded';
@@ -72,7 +72,9 @@ function commerce_checkoutpayment_settings_default() {
     'timeout' => 60,
     'card_types' => array(),
     'payment_action' => COMMERCE_CREDIT_AUTH_ONLY,
-    'autocaptime' => 0
+    'autocaptime' => 0,
+    'paymentMode' => 'cards',
+    'is3D' => false
   );
 }
 
@@ -324,7 +326,6 @@ function commerce_checkoutpayment_menu() {
     'type' => MENU_CALLBACK,
   );
 
-
   return $items;
 }
 
@@ -500,7 +501,7 @@ function commerce_checkoutpayment_success_order() {
     commerce_checkout_complete($order);
     drupal_goto(commerce_checkout_order_uri($order));
   }
-  else { 
+  elseif ($order->status != 'processing') {
     $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
     $transaction->message = $object_charge->getRawRespond();
     commerce_payment_transaction_save($transaction);
@@ -718,7 +719,7 @@ function commerce_checkoutpayment_process_charge(){
 
         // Add the line item to the return array.
         $products[$delta] = array(
-          'productName' => commerce_line_item_title($line_item_wrapper->value()),
+          'name' => commerce_line_item_title($line_item_wrapper->value()),
           'price' => $sell_price,
           'quantity' => round($line_item_wrapper->quantity->value()),
           'sku' => '',
@@ -740,7 +741,7 @@ function commerce_checkoutpayment_process_charge(){
       'customerIp'        => $ip,
       'autoCapTime'       => $autoCapTime,
       'email'             => $email,
-      'customerName'          => $customerName,
+      'customerName'      => $customerName,
       'email'             => $email,
       'metadata'          => array(
           'server'            => $_SERVER['HTTP_USER_AGENT'],
@@ -774,50 +775,62 @@ function commerce_checkoutpayment_process_charge(){
       $config['postedParam']['shippingDetails'] = $shipping_array;
   }
 
-  $result = $Api->createCharge($config);
+    $order_status = commerce_order_status_load($order->status);
 
-  $transaction = commerce_payment_transaction_new($payment_method['method_id'], $order->order_id);
-  $transaction->instance_id = $payment_method['instance_id'];
-  $transaction->amount = $order_total;
-  $transaction->currency_code = $currencyCode;
+    if ($order->status == 'checkout_payment') {
+        $result = $Api->createCharge($config);
 
-  if ($Api->getExceptionState()->hasError()) {
-    $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
-    commerce_payment_transaction_save($transaction);
-    drupal_set_message(t('An error has occured while processing your transaction. Please verify your information again or try a different card.'), 'error');
-    $order = commerce_order_status_update($order, 'checkout_review', FALSE, TRUE, t('Proceed to review page'));
-    drupal_goto('checkout/' . $order->order_id . '/review');
-    watchdog('checkoutpayment_return_url', '!charge', array('!charge' => $result), WATCHDOG_WARNING);
-  }
+        $transaction = commerce_payment_transaction_new($payment_method['method_id'], $order->order_id);
+        $transaction->instance_id = $payment_method['instance_id'];
+        $transaction->amount = $order_total;
+        $transaction->currency_code = $currencyCode;
 
-  if (!$result->isValid() || !responseValidation($result)) {
-    $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
-    commerce_payment_transaction_save($transaction);
-    drupal_set_message(t('An error has occured while processing your transaction. Please verify your card information or try a different card.'), 'error');
-    $order = commerce_order_status_update($order, 'checkout_review', FALSE, TRUE, t('Proceed to review page'));
-    drupal_goto('checkout/' . $order->order_id . '/review');
-    watchdog('checkoutpayment_return_url', '!charge', array('!charge' => $result->getRawOutput()), WATCHDOG_WARNING);
-  } 
-  else {
+        if ($Api->getExceptionState()->hasError()) {
+            $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+            commerce_payment_transaction_save($transaction);
+            drupal_set_message(t('An error has occured while processing your transaction. Please verify your information again or try a different card.'), 'error');
+            $order = commerce_order_status_update($order, 'checkout_review', FALSE, TRUE, t('Proceed to review page'));
+            drupal_goto('checkout/' . $order->order_id . '/review');
+            watchdog('checkoutpayment_return_url', '!charge', array('!charge' => $result), WATCHDOG_WARNING);
+        }
 
-    if($result->getRedirectUrl()){
-        drupal_goto($result->getRedirectUrl());
-        exit();
+        if ((!$result->isValid() || !responseValidation($result)) ) {
+            $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+            commerce_payment_transaction_save($transaction);
+            drupal_set_message(t('An error has occured while processing your transaction. Please verify your card information or try a different card.'), 'error');
+            $order = commerce_order_status_update($order, 'checkout_review', FALSE, TRUE, t('Proceed to review page'));
+            drupal_goto('checkout/' . $order->order_id . '/review');
+            watchdog('checkoutpayment_return_url', '!charge', array('!charge' => $result->getRawOutput()), WATCHDOG_WARNING);
+        }
+        else {
+            if($result->getRedirectUrl()){
+                drupal_goto($result->getRedirectUrl());
+                exit();
+            }
+
+            $message = 'Your transaction has been successfully authorized with chargeId : ' . $result->getId();
+
+            if($result->getResponseCode()==10100){
+                $message = 'Your transaction has been flagged - chargeId : ' . $result->getId();
+            }
+
+            $transaction->status = COMMERCE_PAYMENT_STATUS_PENDING;
+            $transaction->message = $message;
+            commerce_payment_transaction_save($transaction);
+            $order = commerce_order_status_update($order, 'checkout_complete', FALSE, TRUE, 'Your payment has been successfully completed');
+            commerce_checkout_complete($order);
+            drupal_goto(commerce_checkout_order_uri($order));
+        }
     }
-
-    $message = 'Your transaction has been successfully authorized with chargeId : ' . $result->getId();
-
-    if($result->getResponseCode()==10100){
-      $message = 'Your transaction has been flagged - chargeId : ' . $result->getId();
+    else {
+      if($order->status == 'processing'){
+          drupal_goto(commerce_checkout_order_uri($order));
+      } else {
+          drupal_set_message(t('An error has occured while processing your transaction. Please try again.'), 'error');
+          $order = commerce_order_status_update($order, 'checkout_review', FALSE, TRUE, t('Proceed to review page'));
+          drupal_goto('checkout/' . $order->order_id . '/review');
+      }
     }
-
-    $transaction->status = COMMERCE_PAYMENT_STATUS_PENDING;
-    $transaction->message = $message;
-    commerce_payment_transaction_save($transaction);
-    $order = commerce_order_status_update($order, 'checkout_complete', FALSE, TRUE, 'Your payment has been successfully completed');
-    commerce_checkout_complete($order);
-    drupal_goto(commerce_checkout_order_uri($order));
-  }
 
 }
 
@@ -829,19 +842,22 @@ function commerce_checkoutpayment_fail_order(){
     $order = commerce_order_load($_SESSION['orderId']);
   }
 
-  module_load_include('php', 'commerce_checkoutpayment', 'includes/autoload');
+  if ($order->status != 'processing') {
+      module_load_include('php', 'commerce_checkoutpayment', 'includes/autoload');
 
-  $instance_id = $_SESSION['cko_instance_id'];
-  $payment_method = commerce_payment_method_instance_load($instance_id);
+      $instance_id = $_SESSION['cko_instance_id'];
+      $payment_method = commerce_payment_method_instance_load($instance_id);
 
-  $transaction = commerce_payment_transaction_new($payment_method['method_id'], $order->order_id);
-  $transaction->instance_id = $payment_method['instance_id'];
+      $transaction = commerce_payment_transaction_new($payment_method['method_id'], $order->order_id);
+      $transaction->instance_id = $payment_method['instance_id'];
 
-  $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
-  commerce_payment_transaction_save($transaction);
-  drupal_set_message(t('An error has occured. Your order has been canceled.'), 'error');
-  $order = commerce_order_status_update($order, 'checkout_review', FALSE, TRUE, t('Proceed to review page'));
-  drupal_goto('checkout/' . $order->order_id . '/review');
+      $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+      commerce_payment_transaction_save($transaction);
+      drupal_set_message(t('An error has occured. Your order has been canceled.'), 'error');
+      $order = commerce_order_status_update($order, 'checkout_review', FALSE, TRUE, t('Proceed to review page'));
+      drupal_goto('checkout/' . $order->order_id . '/review');
+  }
+
 }
 
 /**
