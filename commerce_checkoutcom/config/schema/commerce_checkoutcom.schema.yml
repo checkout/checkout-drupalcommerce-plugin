@@ -1,0 +1,12 @@
+commerce_payment.commerce_payment_gateway.plugin.checkoutcom:
+  type: commerce_payment_gateway_configuration
+  mapping:
+    public_key:
+      type: string
+      label: 'API key'
+    secret_key:
+      type: string
+      label: 'Secret key'
+    webhook_capture_id:
+      type: string
+      label: 'Capture webhook id'

@@ -1,0 +1,14 @@
+name: Commerce Checkout.com
+type: module
+description: 'Provides Commerce integration for Checkout.com payment gateway.'
+package: Commerce (contrib)
+core: 8.x
+core_version_requirement: ^8 || ^9
+config: entity.address_format.collection
+dependencies:
+  - commerce:commerce_payment
+
+# Information added by Drupal.org packaging script on 2020-08-20
+version: '8.x-1.0-beta2+4-dev'
+project: 'commerce_checkoutcom'
+datestamp: 1597912693

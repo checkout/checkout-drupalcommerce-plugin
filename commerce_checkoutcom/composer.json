@@ -1,0 +1,17 @@
+{
+    "name": "drupal/commerce_checkoutcom",
+    "type": "drupal-module",
+    "description": "Provides Commerce integration for Checkout.com payment gateway.",
+    "homepage": "http://drupal.org/project/commerce_checkoutcom",
+    "license": "GPL-2.0+",
+    "keywords": ["Drupal"],
+    "minimum-stability": "dev",
+    "support": {
+        "issues": "https://www.drupal.org/project/issues/commerce_checkoutcom",
+        "source": "https://git.drupalcode.org/project/commerce_checkoutcom"
+    },
+    "require": {
+        "drupal/commerce": "~2.0",
+        "checkout/checkout-sdk-php": "^1.0.8"
+    }
+}
