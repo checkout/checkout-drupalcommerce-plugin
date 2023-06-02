@@ -1,0 +1,31 @@
+commerce_checkoutcom.checkout.return:
+  path: '/checkout/{commerce_order}/{step}/checkoutcom-success'
+  defaults:
+    _controller: '\Drupal\commerce_checkoutcom\Controller\CheckoutComController::returnPage'
+  requirements:
+    _access: 'TRUE'
+    _module_dependencies: commerce_checkout
+  options:
+    parameters:
+      commerce_order:
+        type: entity:commerce_order
+
+commerce_checkoutcom.checkout.cancel:
+  path: '/checkout/{commerce_order}/{step}/checkoutcom-failure'
+  defaults:
+    _controller: '\Drupal\commerce_checkoutcom\Controller\CheckoutComController::cancelPage'
+  requirements:
+    _access: 'TRUE'
+    _module_dependencies: commerce_checkout
+  options:
+    parameters:
+      commerce_order:
+        type: entity:commerce_order
+
+commerce_checkoutcom.webhook.capture:
+  path: '/checkoutcom/webhook/capture'
+  defaults:
+    _controller: '\Drupal\commerce_checkoutcom\Controller\CheckoutComController::webhookCapture'
+  methods: [POST]
+  requirements:
+    _custom_access: '\Drupal\commerce_checkoutcom\Controller\CheckoutComController::webhookAuthentication'
